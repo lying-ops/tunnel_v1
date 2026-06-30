@@ -1,0 +1,29 @@
+隧道泵站自动控制系统 V5.7.17_TwinStateRenderPro 修改说明
+
+一、主要修复
+1. 修复主程序泵状态正常刷新，但三维孪生仍显示备用、0Hz、0A的问题。
+2. 主程序每秒自动把当前泵站实时数据写入 twin_state.json。
+3. 三维查看器每秒读取 twin_state.json，显示状态、频率、电流、流量、压力、液位。
+4. 增加状态同步序号 sequence、更新时间 updatedAt、状态超时提示。
+5. 同时写入 data/twin_viewer/twin_state.json 和旧版 twin_viewer/twin_state.json，避免查看器读错旧状态文件。
+6. 数据字段增加兼容别名：freq/runFreq/run_freq/frequency、current/current_a、setFreq/set_freq。
+7. 若数据库泵编号不是 P1/P2/P3/P4，按显示顺序自动生成 P1/P2/P3/P4 模型别名，保证 GLB 对象绑定。
+
+二、渲染增强保持
+1. 保留 V5.7.16 原始材质读取逻辑。
+2. 保留 baseColorFactor、baseColorTexture、TEXCOORD_0 读取。
+3. 状态颜色仍采用轻量叠加，不直接覆盖 GLB 原材质。
+4. 标签继续支持状态标签、简洁标签、选中详情、只看报警。
+
+三、使用方法
+1. 启动 run_app.bat。
+2. 进入“三维孪生”。
+3. 导入 sample_models/ST01.glb 或现场模型。
+4. 点击“外部GLB查看器”或“加载内嵌动态查看器”。
+5. 点击“刷新数据绑定”可查看当前 twin_state.json 路径和同步序号。
+
+四、排查方法
+1. 如果三维数据不变，看右侧“状态同步”是否显示超时。
+2. 如果显示超时，说明主程序没有继续写 twin_state.json。
+3. 如果主程序正常但查看器不同步，请关闭外部查看器重新打开，避免打开了旧版本页面。
+4. 如果对象不变色，点击“模型状态检查”，确认 P1/P2/P3/P4/PIPE_A/FT01/PT01/LT01 命名是否存在。
