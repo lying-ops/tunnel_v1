@@ -5206,36 +5206,71 @@ def _v5714_load_twin_in_page(self, force=False):
     self.twin_view_frame.pack(fill="both", expand=True)
     self.update_idletasks()
     try:
-        from tkinterwebview2 import WebView2
-        try:
-            w = WebView2(self.twin_view_frame, width=900, height=600)
-            w.pack(fill='both', expand=True)
-            if hasattr(w, 'load_url'): w.load_url(url)
-            elif hasattr(w, 'navigate'): w.navigate(url)
-            elif hasattr(w, 'load'): w.load(url)
-            self.twin_embedded_widget = w; self.twin_loaded_url = url; self.twin_embed_status = 'tkinterwebview2'
-            return True
-        except TypeError:
-            w = WebView2(self.twin_view_frame, url=url)
-            w.pack(fill='both', expand=True)
-            self.twin_embedded_widget = w; self.twin_loaded_url = url; self.twin_embed_status = 'tkinterwebview2'
-            return True
-    except Exception as e:
-        errors.append('tkinterwebview2 不可用：' + str(e))
-    try:
-        import webview
-        threading.Thread(target=lambda: webview.create_window('隧道泵站三维孪生', url, width=1280, height=820) or webview.start(), daemon=True).start()
-        self._show_twin_placeholder('已通过 pywebview 打开三维孪生窗口。\\n如果没有弹出窗口，请使用“外部GLB查看器”。')
+        from cefpython3 import cefpython as cef
+        """
+        LOGSEVERITY_VERBOSE - 记录详细信息，包括调试和运行时信息。
+        LOGSEVERITY_INFO - 记录信息性消息，但不包括调试和运行时信息。
+        LOGSEVERITY_WARNING - 记录警告和错误信息。
+        LOGSEVERITY_ERROR - 只记录错误信息。
+        LOGSEVERITY_DISABLE - 禁用日志记录。
+        LOGSEVERITY_FATAL - 记录致命错误信息。
+        """
+        if not getattr(self, '_cef_initialized', False):
+            cef.Initialize(settings={
+                "windowless_rendering_enabled": False,
+                "log_severity": cef.LOGSEVERITY_INFO,
+                # "log_file": "../log/cefpython.log"  # 日志文件路径
+            })
+            self._cef_initialized = True
+        self.update()
+        hwnd = self.twin_view_frame.winfo_id()
+
+        width = self.twin_view_frame.winfo_width()
+        height = self.twin_view_frame.winfo_height()
+        if width < 10 or height < 10:
+            width, height = 900, 600
+        rect = [0, 0, width, height]
+        window_info = cef.WindowInfo()
+        window_info.SetAsChild(hwnd, rect)
+        self.browser = cef.CreateBrowserSync(window_info, url=url)
+
+        if not getattr(self, '_cef_loop_running', False):
+            self._cef_loop_running = True
+
+            def cef_loop():
+                try:
+                    cef.MessageLoopWork()
+                except Exception:
+                    pass
+                if hasattr(self, 'browser') and self.browser:
+                    self.after(10, cef_loop)
+                else:
+                    self._cef_loop_running = False
+
+            self.after(10, cef_loop)
+        self.twin_embedded_widget = self.browser
         self.twin_loaded_url = url
+        self.twin_embed_status = 'cefpython3'
         return True
     except Exception as e:
-        errors.append('pywebview 不可用：' + str(e))
-    try:
-        webbrowser.open(url)
-    except Exception:
-        pass
-    self._show_twin_placeholder('当前 Python/Tk 环境没有可嵌入 WebGL 的浏览器组件。\\n\\n已自动打开外部动态查看器；外部查看器已经支持：\\n1. 父级对象 P1/P2/P3/P4 颜色联动；\\n2. PIPE_A/LT01/FT01/PT01/CAM01 标签显示；\\n3. 点击标签查看实时参数。\\n\\n' + '\\n'.join(errors[:2]))
-    self.twin_loaded_url = ''
+        print(e)
+        errors.append(str(e))
+        try:
+            from tkwebview2.tkwebview2 import WebView2
+            w = WebView2(self.twin_view_frame, 900, 600, url=url)
+            w.pack(fill='both', expand=True)
+            w.load_url(url)
+            self.twin_embedded_widget = w
+            self.twin_loaded_url = url
+            self.twin_embed_status = 'tkwebview2'
+            return True
+        except Exception as e2:
+            errors.append(f"WebView2: {str(e2)}")
+
+    msg='当前环境未安装可嵌入 WebGL 的浏览器组件，暂不能在本页内直接旋转/缩放。\n\n已生成动态查看器和 twin_state.json；可点击“外部GLB查看器”查看完整效果。\n\n安装可选组件后再点“加载内嵌动态查看器”。\n' + '\n'.join(errors[:1])
+    self._show_twin_placeholder(msg)
+    self.twin_loaded_url=''
+    self.twin_embed_status = 'failed'
     return False
 
 
