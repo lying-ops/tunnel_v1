@@ -1,0 +1,26 @@
+V5.7.21_TwinMaterialRestore 修改说明
+
+本版修复 V5.7.19 在部分 Windows WebView/浏览器/显卡驱动环境下三维模型加载失败的问题。
+
+问题现象：
+三维模型加载失败：Precisions of uniform 'outlinePass' differ between VERTEX and FRAGMENT shaders.
+
+原因说明：
+V5.7.19 新增轮廓描边功能后，顶点着色器和片元着色器中 outlinePass 这个 uniform 的浮点精度声明不一致。
+部分 WebGL 实现比较宽松可以运行，但部分 WebView/显卡驱动会严格检查，导致 Shader 链接失败，模型加载被中断。
+
+修复内容：
+1. 统一顶点着色器与片元着色器的 precision highp float / highp int；
+2. outlinePass、outlineThickness 等轮廓相关 uniform 显式声明为 highp；
+3. 保留 V5.7.19 的 HDR 环境、阴影地台、轮廓描边功能；
+4. 保留 V5.7.18/17 的实时状态同步逻辑；
+5. 该问题不是 GLB 模型问题，模型文件无需重新导出。
+
+测试建议：
+1. 解压后运行 run_app.bat；
+2. 进入三维孪生；
+3. 导入 sample_models/ST01.glb 或现场 GLB；
+4. 打开外部 GLB 查看器；
+5. 确认模型正常加载；
+6. 开关 HDR环境、阴影地台、轮廓描边，确认显示正常；
+7. 检查 P1-P4 状态、频率、电流是否继续同步刷新。
