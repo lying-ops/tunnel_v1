@@ -4638,7 +4638,11 @@ def _v5713_copy_model_to_safe_store(self, source_path, sid=None):
         need_copy = True
         if os.path.isfile(target):
             try:
-                need_copy = os.path.getsize(source) != os.path.getsize(target)
+                src_size = os.path.getsize(source)
+                tgt_size = os.path.getsize(target)
+                src_mtime = os.path.getmtime(source)
+                tgt_mtime = os.path.getmtime(target)
+                need_copy = (src_size != tgt_size) or (src_mtime > tgt_mtime)
             except Exception:
                 need_copy = True
         if need_copy:
