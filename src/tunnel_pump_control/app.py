@@ -6466,7 +6466,7 @@ def _v5714_load_twin_in_page(self, force=False):
         if not getattr(self, '_cef_initialized', False):
             cef.Initialize(settings={
                 "windowless_rendering_enabled": False,
-                "log_severity": cef.LOGSEVERITY_INFO,
+                "log_severity": cef.LOGSEVERITY_DISABLE,
                 # "log_file": "../log/cefpython.log"  # 日志文件路径
             })
             self._cef_initialized = True
@@ -6496,20 +6496,39 @@ def _v5714_load_twin_in_page(self, force=False):
                     self._cef_loop_running = False
 
             self.after(10, cef_loop)
+        import win32gui
 
-        def _twin_resize(event=None):
+        def _resize_browser(event=None):
+            if not getattr(self, "browser", None):
+                return
+            w = self.twin_view_frame.winfo_width()
+            h = self.twin_view_frame.winfo_height()
+            if w < 10 or h < 10:
+                return
             try:
-                if hasattr(self, 'browser') and self.browser:
+                hwnd = self.browser.GetWindowHandle()
+                win32gui.MoveWindow(
+                    hwnd,
+                    0,
+                    0,
+                    w,
+                    h,
+                    True
+                )
+                print("BrowserRect:",win32gui.GetWindowRect(hwnd))
+                self.browser.NotifyMoveOrResizeStarted()
+                self.browser.WasResized()
+            except Exception as e:
+                print("Resize Error:", e)
 
-                    w = self.twin_view_frame.winfo_width()
-                    h = self.twin_view_frame.winfo_height()
-                    print(f"_twin_resize>>>  wid={w}, hei={h}")
-                    if w > 10 and h > 10:
-                        self.browser.SetBounds(0, 0, w, h)
-            except Exception:
-                pass
-
-        self.twin_view_frame.bind('<Configure>', _twin_resize)
+        print("Frame hwnd =", self.twin_view_frame.winfo_id())
+        print("Browser hwnd =", self.browser.GetWindowHandle())
+        print("Browser Parent =",
+              win32gui.GetParent(
+                  self.browser.GetWindowHandle()
+              ))
+        self.twin_view_frame.bind("<Configure>", _resize_browser)
+        self.after(100, _resize_browser)
         self.twin_embedded_widget = self.browser
         self.twin_loaded_url = url
         self.twin_embed_status = 'cefpython3'
