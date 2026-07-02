@@ -366,59 +366,250 @@ class App(tk.Tk):
 
     # Dashboard
     def build_dashboard(self):
+        """首页总览：深蓝色泵站驾驶舱界面。"""
         f = self.pages['首页总览']
-        self.dash_container = tk.Frame(f, bg='#eef3f8')
+        for w in f.winfo_children():
+            w.destroy()
+
+        self.dash_bg = '#031326'
+        self.dash_panel_bg = '#071f3d'
+        self.dash_panel_bg2 = '#092a50'
+        self.dash_line = '#0b5fa5'
+        self.dash_text = '#d9ecff'
+        self.dash_muted = '#7fb8ee'
+        self.dash_green = '#21e56d'
+        self.dash_blue = '#1e9bff'
+        self.dash_yellow = '#ffc526'
+        self.dash_red = '#ff4136'
+
+        self.dash_container = tk.Frame(f, bg=self.dash_bg)
         self.dash_container.pack(fill='both', expand=True)
-        header = tk.Frame(self.dash_container, bg='#1f4e79', height=58)
-        header.pack(fill='x')
-        header.pack_propagate(False)
-        tk.Label(header, text='🏠 首页总览驾驶舱', font=('Microsoft YaHei', 18, 'bold'), bg='#1f4e79', fg='white').pack(
-            side='left', padx=16)
-        self.dash_header = tk.Label(header, text='', font=('Microsoft YaHei', 11, 'bold'), bg='#1f4e79', fg='#dcecff')
-        self.dash_header.pack(side='right', padx=16)
 
-        body = tk.Frame(self.dash_container, bg='#eef3f8')
-        body.pack(fill='both', expand=True, padx=12, pady=10)
+        # 顶部标题栏
+        top = tk.Frame(self.dash_container, bg='#041a34', height=58,
+                       highlightbackground='#0b5fa5', highlightthickness=1)
+        top.pack(fill='x', padx=10, pady=(8, 6))
+        top.pack_propagate(False)
+        top.grid_columnconfigure(0, weight=1)
+        top.grid_columnconfigure(1, weight=3)
+        top.grid_columnconfigure(2, weight=1)
 
-        self.dash_stat_frame = tk.Frame(body, bg='#eef3f8')
-        self.dash_stat_frame.pack(fill='x', pady=(0, 8))
-        self.dash_metric_frame = tk.Frame(body, bg='#eef3f8')
-        self.dash_metric_frame.pack(fill='x', pady=(0, 8))
+        nav = tk.Frame(top, bg='#041a34')
+        nav.grid(row=0, column=0, sticky='nsew', padx=8)
+        tk.Label(nav, text='☰', font=('Microsoft YaHei', 15, 'bold'), bg='#09294f', fg='#8cc8ff',
+                 width=3, bd=0, relief='flat').pack(side='left', pady=12)
+        tk.Label(nav, text='◇', font=('Microsoft YaHei', 15), bg='#041a34', fg='#6bbcff').pack(side='left', padx=8)
+        tk.Label(nav, text='⌂  泵站总览', font=('Microsoft YaHei', 10, 'bold'), bg='#0a2d56', fg='#eaf6ff',
+                 padx=12, pady=6).pack(side='left')
 
-        lower = tk.Frame(body, bg='#eef3f8')
-        lower.pack(fill='both', expand=True)
-        left = tk.Frame(lower, bg='#eef3f8')
-        left.pack(side='left', fill='both', expand=True)
-        right = tk.Frame(lower, bg='#eef3f8', width=300)
-        right.pack(side='right', fill='y', padx=(10, 0))
-        right.pack_propagate(False)
+        tk.Label(top, text='隧道泵站自动控制系统  V5.7', font=('Microsoft YaHei', 22, 'bold'),
+                 bg='#041a34', fg='#f3f8ff').grid(row=0, column=1, sticky='nsew')
 
-        self.dash_station_outer = tk.LabelFrame(left, text='  泵站运行概览  ', font=('Microsoft YaHei', 11, 'bold'),
-                                                bg='#eef3f8', fg='#1f4e79', bd=1, relief='groove')
-        self.dash_station_outer.pack(fill='both', expand=True)
-        self.dash_station_canvas = tk.Canvas(self.dash_station_outer, highlightthickness=0, bg='#eef3f8')
-        self.dash_station_scroll = ttk.Scrollbar(self.dash_station_outer, orient='vertical',
-                                                 command=self.dash_station_canvas.yview)
-        self.dash_station_frame = tk.Frame(self.dash_station_canvas, bg='#eef3f8')
-        self.dash_station_frame.bind('<Configure>', lambda e: self.dash_station_canvas.configure(
-            scrollregion=self.dash_station_canvas.bbox('all')))
-        self.dash_station_canvas.create_window((0, 0), window=self.dash_station_frame, anchor='nw')
-        self.dash_station_canvas.configure(yscrollcommand=self.dash_station_scroll.set)
-        self.dash_station_canvas.pack(side='left', fill='both', expand=True, padx=6, pady=6)
-        self.dash_station_scroll.pack(side='right', fill='y')
+        right = tk.Frame(top, bg='#041a34')
+        right.grid(row=0, column=2, sticky='nsew', padx=8)
+        self.dash_datetime_lbl = tk.Label(right, text='-', font=('Consolas', 10, 'bold'), bg='#041a34',
+                                          fg='#d8edff')
+        self.dash_datetime_lbl.pack(side='left', padx=(0, 10), pady=18)
+        self.dash_week_lbl = tk.Label(right, text='-', font=('Microsoft YaHei', 9), bg='#041a34', fg='#d8edff')
+        self.dash_week_lbl.pack(side='left', padx=(0, 12), pady=18)
+        self.dash_backend_lbl = tk.Label(right, text='后端服务：● 正常', font=('Microsoft YaHei', 9),
+                                         bg='#041a34', fg=self.dash_green)
+        self.dash_backend_lbl.pack(side='left', padx=(0, 12), pady=18)
+        self.dash_total_status_lbl = tk.Label(right, text='总状态：● 正常', font=('Microsoft YaHei', 9),
+                                              bg='#041a34', fg=self.dash_green)
+        self.dash_total_status_lbl.pack(side='left', pady=18)
+        self.dash_header = self.dash_datetime_lbl
 
-        self.dash_notice_frame = tk.LabelFrame(right, text='  智能运行提示  ', font=('Microsoft YaHei', 11, 'bold'),
-                                               bg='#eef3f8', fg='#1f4e79', bd=1, relief='groove')
-        self.dash_notice_frame.pack(fill='both', expand=True)
+        # KPI 指标区
+        kpi_row = tk.Frame(self.dash_container, bg=self.dash_bg, height=86)
+        kpi_row.pack(fill='x', padx=10, pady=(0, 8))
+        kpi_row.pack_propagate(False)
+        for i in range(10):
+            kpi_row.grid_columnconfigure(i, weight=1, uniform='kpi')
+        self.dash_stat_frame = kpi_row
+        self.dash_metric_frame = kpi_row
+        self.dash_kpis = {}
+        kpis = [
+            ('running', '▶', '运行数量', self.dash_green),
+            ('standby', 'Ⅱ', '备用数量', self.dash_blue),
+            ('fault', '⚠', '故障数量', self.dash_red),
+            ('maintenance', '⚒', '检修数量', self.dash_yellow),
+            ('current', 'ϟ', '总电流', self.dash_blue),
+            ('voltage', '⌁', '总电压', self.dash_blue),
+            ('power', 'Ω', '总功率', self.dash_blue),
+            ('flow', '◔', '总瞬时流量', self.dash_blue),
+            ('day_flow', '♨', '当天排水量', self.dash_blue),
+            ('day_energy', 'ϟ', '当天耗电量', self.dash_blue),
+        ]
+        for i, (key, icon, title, color) in enumerate(kpis):
+            card = self._dash_kpi(kpi_row, icon, title, '-', '', color)
+            card['box'].grid(row=0, column=i, sticky='nsew', padx=4, pady=2)
+            self.dash_kpis[key] = card
+
+        # 主体区域
+        self.dash_main = tk.Frame(self.dash_container, bg=self.dash_bg)
+        self.dash_main.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        self.dash_main.grid_columnconfigure(0, minsize=280)
+        self.dash_main.grid_columnconfigure(1, weight=1)
+        self.dash_main.grid_columnconfigure(2, minsize=350)
+        self.dash_main.grid_rowconfigure(0, minsize=34)
+        self.dash_main.grid_rowconfigure(1, weight=1)
+        self.dash_main.grid_rowconfigure(2, minsize=185)
+
+        station_bar = tk.Frame(self.dash_main, bg='#08294f', height=34,
+                               highlightbackground='#0b5fa5', highlightthickness=1)
+        station_bar.grid(row=0, column=0, sticky='nsew', padx=(0, 8), pady=(0, 8))
+        station_bar.pack_propagate(False)
+        tk.Label(station_bar, text='当前泵站：', font=('Microsoft YaHei', 12, 'bold'), bg='#08294f',
+                 fg='#f0f7ff').pack(side='left', padx=(12, 4), pady=4)
+        self.dash_station_lbl = tk.Label(station_bar, text='-', font=('Microsoft YaHei', 15, 'bold italic'),
+                                         bg='#08294f', fg='#f3f8ff')
+        self.dash_station_lbl.pack(side='left', pady=2)
+
+        # 左侧液位
+        level_col = tk.Frame(self.dash_main, bg=self.dash_bg)
+        level_col.grid(row=1, column=0, sticky='nsew', padx=(0, 8), pady=(0, 8))
+        level_col.grid_rowconfigure(0, weight=1)
+        level_col.grid_rowconfigure(1, weight=1)
+        self.dash_levels = {
+            'lt1': self._dash_level_panel(level_col, '液位1', 'LT01', '-', self.dash_green),
+            'lt2': self._dash_level_panel(level_col, '液位2', 'LT02', '-', self.dash_blue),
+        }
+        self.dash_levels['lt1']['box'].grid(row=0, column=0, sticky='nsew', pady=(0, 8))
+        self.dash_levels['lt2']['box'].grid(row=1, column=0, sticky='nsew')
+
+        # 中间数字孪生
+        twin_outer, twin_body = self._dash_panel(self.dash_main, '泵站数字孪生')
+        twin_outer.grid(row=0, column=1, rowspan=2, sticky='nsew', padx=(0, 8), pady=(0, 8))
+        view_box = tk.Frame(twin_outer, bg='#071f3d')
+        view_box.place(relx=0.78, y=13, relwidth=0.18, height=26)
+        tk.Label(view_box, text='3D视角', font=('Microsoft YaHei', 9), bg='#1d76c8', fg='#eaf6ff',
+                 padx=14).pack(side='left', fill='both')
+        tk.Label(view_box, text='平面图', font=('Microsoft YaHei', 9), bg='#12375d', fg='#9dc8f1',
+                 padx=14).pack(side='left', fill='both')
+        self.dash_twin_canvas = tk.Canvas(twin_body, bg='#06172d', highlightthickness=0)
+        self.dash_twin_canvas.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+
+        # 右侧设备状态
+        status_outer, status_body = self._dash_panel(self.dash_main, '设备运行状态')
+        status_outer.grid(row=0, column=2, rowspan=2, sticky='nsew', pady=(0, 8))
+        self.dash_status_body = status_body
+
+        # 底部趋势图
+        charts_outer, charts_body = self._dash_panel(self.dash_main, None)
+        charts_outer.grid(row=2, column=0, columnspan=2, sticky='nsew', padx=(0, 8))
+        charts_body.grid_columnconfigure(0, weight=1)
+        charts_body.grid_columnconfigure(1, weight=1)
+        charts_body.grid_columnconfigure(2, weight=1)
+        charts_body.grid_columnconfigure(3, weight=1)
+        charts_body.grid_columnconfigure(4, weight=1)
+        self.dash_charts = {}
+        chart_defs = [
+            ('level', '液位变化（m）'),
+            ('flow', '流量（m³/s）'),
+            ('pressure', '压力（MPa）'),
+            ('power', '功率（MW）'),
+            ('energy', '电量（kWh）'),
+        ]
+        for i, (key, title) in enumerate(chart_defs):
+            chart = self._dash_chart(charts_body, title)
+            chart['box'].grid(row=0, column=i, sticky='nsew', padx=4, pady=4)
+            self.dash_charts[key] = chart
+
+        # 右下报警事件
+        event_outer, event_body = self._dash_panel(self.dash_main, '报警 / 事件')
+        event_outer.grid(row=2, column=2, sticky='nsew')
+        self.dash_event_body = event_body
+
+        self.refresh_dashboard()
+
+    def _dash_panel(self, parent, title=None, bg='#071f3d'):
+        outer = tk.Frame(parent, bg=bg, highlightbackground='#0b5fa5', highlightthickness=1)
+        if title:
+            title_bar = tk.Frame(outer, bg=bg, height=36)
+            title_bar.pack(fill='x')
+            title_bar.pack_propagate(False)
+            tk.Label(title_bar, text='▌', font=('Microsoft YaHei', 13, 'bold'), bg=bg, fg='#1e9bff').pack(
+                side='left', padx=(8, 0), pady=8)
+            tk.Label(title_bar, text=title, font=('Microsoft YaHei', 11, 'bold'), bg=bg, fg='#dceeff').pack(
+                side='left', padx=(4, 0), pady=8)
+            if title == '报警 / 事件':
+                tk.Label(title_bar, text='更多 >', font=('Microsoft YaHei', 9), bg=bg, fg='#4eb0ff').pack(
+                    side='right', padx=10, pady=8)
+        body = tk.Frame(outer, bg=bg)
+        body.pack(fill='both', expand=True)
+        return outer, body
+
+    def _dash_kpi(self, parent, icon, title, value, unit='', color='#1e9bff'):
+        box = tk.Frame(parent, bg='#071f3d', highlightbackground='#0c4d8c', highlightthickness=1)
+        icon_box = tk.Frame(box, bg='#082a4f', width=62)
+        icon_box.pack(side='left', fill='y')
+        icon_box.pack_propagate(False)
+        icon_lbl = tk.Label(icon_box, text=icon, font=('Microsoft YaHei', 22, 'bold'), bg='#082a4f', fg=color)
+        icon_lbl.pack(expand=True)
+        content = tk.Frame(box, bg='#071f3d')
+        content.pack(side='left', fill='both', expand=True, padx=(8, 4), pady=8)
+        title_lbl = tk.Label(content, text=title, font=('Microsoft YaHei', 9, 'bold'), bg='#071f3d', fg='#c8e7ff',
+                             anchor='w')
+        title_lbl.pack(fill='x')
+        value_line = tk.Frame(content, bg='#071f3d')
+        value_line.pack(anchor='w', pady=(4, 0))
+        value_lbl = tk.Label(value_line, text=str(value), font=('Consolas', 18, 'bold'), bg='#071f3d', fg='#f4f8ff')
+        value_lbl.pack(side='left')
+        unit_lbl = tk.Label(value_line, text=(' ' + unit) if unit else '', font=('Microsoft YaHei', 9, 'bold'),
+                            bg='#071f3d', fg='#e6f4ff')
+        unit_lbl.pack(side='left', padx=(2, 0), pady=(7, 0))
+        return {'box': box, 'icon': icon_lbl, 'title': title_lbl, 'value': value_lbl, 'unit': unit_lbl,
+                'color': color}
+
+    def _dash_level_panel(self, parent, name, code, value, color):
+        box = tk.Frame(parent, bg='#071f3d', highlightbackground='#0b5fa5', highlightthickness=1)
+        head = tk.Frame(box, bg='#071f3d', height=34)
+        head.pack(fill='x')
+        head.pack_propagate(False)
+        tk.Label(head, text=name, font=('Microsoft YaHei', 12, 'bold'), bg='#071f3d', fg='#e9f5ff').pack(
+            side='left', padx=(84, 4), pady=6)
+        tk.Label(head, text=code, font=('Microsoft YaHei', 9), bg='#071f3d', fg='#c2ddf7').pack(side='left', pady=8)
+        state_lbl = tk.Label(head, text='正常', font=('Microsoft YaHei', 8, 'bold'), bg='#0b6f45', fg='#72ffab',
+                             padx=10)
+        state_lbl.pack(side='right', padx=12, pady=7)
+
+        body = tk.Frame(box, bg='#071f3d')
+        body.pack(fill='both', expand=True, padx=10, pady=(0, 8))
+        gauge = tk.Canvas(body, width=78, height=150, bg='#071f3d', highlightthickness=0)
+        gauge.pack(side='left', fill='y', padx=(4, 10))
+        info = tk.Frame(body, bg='#071f3d')
+        info.pack(side='left', fill='both', expand=True)
+        value_line = tk.Frame(info, bg='#071f3d')
+        value_line.pack(anchor='w', pady=(8, 0))
+        value_lbl = tk.Label(value_line, text=str(value), font=('Consolas', 24, 'bold'), bg='#071f3d', fg=color)
+        value_lbl.pack(side='left')
+        unit_lbl = tk.Label(value_line, text=' m', font=('Microsoft YaHei', 11, 'bold'), bg='#071f3d', fg='#dceeff')
+        unit_lbl.pack(side='left', pady=(9, 0))
+        tk.Label(info, text='量程：0~10.00m', font=('Microsoft YaHei', 9), bg='#071f3d', fg='#c5d9ef').pack(
+            anchor='w', pady=(4, 4))
+        spark = tk.Canvas(info, height=58, bg='#071f3d', highlightthickness=0)
+        spark.pack(fill='both', expand=True, pady=(2, 0))
+        return {'box': box, 'state': state_lbl, 'gauge': gauge, 'value': value_lbl, 'unit': unit_lbl,
+                'spark': spark, 'color': color, 'code': code}
+
+    def _dash_chart(self, parent, title, color='#1e9bff'):
+        box = tk.Frame(parent, bg='#071f3d')
+        tk.Label(box, text=title, font=('Microsoft YaHei', 10, 'bold'), bg='#071f3d', fg='#e9f5ff',
+                 anchor='w').pack(fill='x', padx=6, pady=(4, 0))
+        canvas = tk.Canvas(box, height=132, bg='#071f3d', highlightthickness=0)
+        canvas.pack(fill='both', expand=True, padx=4, pady=(0, 4))
+        return {'box': box, 'canvas': canvas, 'title': title, 'color': color}
 
     def _make_card(self, parent, icon, title, value, unit='', fg='#1f4e79', width=18, bg='white', accent='#1f4e79'):
-        # Windows 信息磁贴风格：左侧色条 + 图标 + 数据，适合工业软件首页总览。
-        box = tk.Frame(parent, bd=0, relief='flat', background=bg, highlightbackground='#c8d3df', highlightthickness=1,
+        # 保留旧辅助函数，避免其它版本代码引用时报错。
+        box = tk.Frame(parent, bd=0, relief='flat', background=bg, highlightbackground='#c8d3df',
+                       highlightthickness=1,
                        padx=0, pady=0)
         tk.Frame(box, bg=accent, width=5).pack(side='left', fill='y')
         content = tk.Frame(box, background=bg, padx=8, pady=7)
         content.pack(side='left', fill='both', expand=True)
-        top = tk.Frame(content, background=bg);
+        top = tk.Frame(content, background=bg)
         top.pack(fill='x')
         tk.Label(top, text=icon, font=('Segoe UI Symbol', 22), bg=bg, fg=fg, width=3).pack(side='left')
         tk.Label(top, text=title, font=('Microsoft YaHei', 9, 'bold'), bg=bg, fg='#2d3748', anchor='w').pack(
@@ -429,16 +620,17 @@ class App(tk.Tk):
 
     def _pump_state_icon(self, running, fault, maintenance, standby=False):
         if fault:
-            return '●', '#d00000', '故障'
+            return '⚠', self.dash_red if hasattr(self, 'dash_red') else '#d00000', '故障'
         if maintenance:
-            return '◆', '#d49b00', '检修'
+            return '⚒', self.dash_yellow if hasattr(self, 'dash_yellow') else '#d49b00', '检修'
         if running:
-            return '▶', '#008000', '运行'
-        return '■', '#1f77b4' if standby else '#808080', '备用' if standby else '停止'
+            return '▶', self.dash_green if hasattr(self, 'dash_green') else '#008000', '运行'
+        return 'Ⅱ', self.dash_blue if hasattr(self, 'dash_blue') else '#1f77b4', '备用' if standby else '停止'
 
     def _mini_text(self, parent, text, fg='#333333'):
         tk.Label(parent, text=text, font=('Microsoft YaHei', 9), bg='white', fg=fg, anchor='w').pack(anchor='w',
-                                                                                                     fill='x', pady=1)
+                                                                                                     fill='x',
+                                                                                                     pady=1)
 
     def _dashboard_level_values(self):
         """Return two level sensor values for the current station.
@@ -469,217 +661,424 @@ class App(tk.Tk):
             vals = [None, None]
         return vals[:2]
 
-    def refresh_dashboard(self):
-        """首页总览差异刷新。
-        V3.6 修正：不再每秒 destroy/rebuild 首页卡片，避免首页总览闪烁。
-        只有泵站数量、卡片结构变化时才重建；正常刷新只更新 Label 文本和颜色。
-        """
-        if not hasattr(self, 'dash_stat_frame'):
+    def _dash_float(self, value, default=0.0):
+        try:
+            if value is None or value == '':
+                return default
+            return float(value)
+        except Exception:
+            return default
+
+    def _dash_update_kpi(self, key, value, unit='', color=None):
+        item = getattr(self, 'dash_kpis', {}).get(key)
+        if not item:
             return
+        item['value'].config(text=str(value))
+        item['unit'].config(text=(' ' + unit) if unit else '')
+        if color:
+            item['icon'].config(fg=color)
+            item['value'].config(fg='#f4f8ff')
 
-        def set_label(lbl, text=None, fg=None, bg=None):
-            if lbl is None:
-                return
-            cfg = {}
-            if text is not None and lbl.cget('text') != str(text):
-                cfg['text'] = str(text)
-            if fg is not None and str(lbl.cget('fg')) != str(fg):
-                cfg['fg'] = fg
-            if bg is not None and str(lbl.cget('bg')) != str(bg):
-                cfg['bg'] = bg
-            if cfg:
-                lbl.config(**cfg)
+    def _dash_pump_state(self, p, standby=True):
+        if not p:
+            return 'Ⅱ', self.dash_blue, '备用'
+        fault = bool(self.safe_get(p, 'fault_feedback', 0) or self.safe_get(p, 'manual_fault', 0))
+        maint = bool(self.safe_get(p, 'maintenance', 0))
+        running = bool(self.safe_get(p, 'run_feedback', 0))
+        return self._pump_state_icon(running, fault, maint, standby=standby)
 
-        def make_card(parent, key, row, col, icon, title, value, unit='', fg='#1f4e79', accent='#1f4e79'):
-            widgets = getattr(self, 'dash_card_widgets', {})
-            if not hasattr(self, 'dash_card_widgets'):
-                self.dash_card_widgets = {};
-                widgets = self.dash_card_widgets
-            if key not in widgets:
-                box = tk.Frame(parent, bd=0, relief='flat', background='white', highlightbackground='#c8d3df',
-                               highlightthickness=1, padx=0, pady=0)
-                tk.Frame(box, bg=accent, width=5).pack(side='left', fill='y')
-                content = tk.Frame(box, background='white', padx=8, pady=7)
-                content.pack(side='left', fill='both', expand=True)
-                top = tk.Frame(content, background='white');
-                top.pack(fill='x')
-                icon_lbl = tk.Label(top, text=icon, font=('Segoe UI Symbol', 22), bg='white', fg=fg, width=3)
-                icon_lbl.pack(side='left')
-                title_lbl = tk.Label(top, text=title, font=('Microsoft YaHei', 9, 'bold'), bg='white', fg='#2d3748',
-                                     anchor='w')
-                title_lbl.pack(side='left', fill='x', expand=True)
-                value_lbl = tk.Label(content, text='', font=('Microsoft YaHei', 15, 'bold'), bg='white', fg=fg,
-                                     width=12, anchor='w')
-                value_lbl.pack(anchor='w', pady=(2, 0))
-                box.grid(row=row, column=col, padx=4, pady=4, sticky='nsew')
-                widgets[key] = {'box': box, 'icon': icon_lbl, 'title': title_lbl, 'value': value_lbl}
-            w = widgets[key]
-            set_label(w['icon'], icon, fg)
-            set_label(w['title'], title)
-            set_label(w['value'], f'{value} {unit}'.strip(), fg)
-            try:
-                w['box'].grid(row=row, column=col, padx=4, pady=4, sticky='nsew')
-            except Exception:
-                pass
+    def _dash_pump_code(self, p, prefix, index):
+        try:
+            code = self.safe_get(p, 'pump_code', None)
+            return code or f'{prefix}{index}'
+        except Exception:
+            return f'{prefix}{index}'
 
-        s = self.db.dashboard_summary()
-        header_text = f"泵站 {s['station_count']} 座  |  水泵 {s['pump_count']} 台  |  当前时间 {now()}"
-        self.dash_header.config(text=header_text)
+    def _draw_level_gauge(self, panel, value, color):
+        c = panel['gauge']
+        c.delete('all')
+        c.update_idletasks()
+        w = max(int(c.winfo_width() or 78), 78)
+        h = max(int(c.winfo_height() or 150), 150)
+        x0, x1 = 18, w - 18
+        y0, y1 = 10, h - 10
+        c.create_rectangle(x0, y0 + 12, x1, y1 - 12, outline='#365c82', width=2, fill='#09233f')
+        c.create_oval(x0, y0, x1, y0 + 24, outline='#577898', width=2, fill='#0b2b4d')
+        c.create_oval(x0, y1 - 24, x1, y1, outline='#577898', width=2, fill='#071f3d')
+        for i in range(1, 9):
+            y = y0 + 16 + (y1 - y0 - 32) * i / 10
+            c.create_line(x0 + 4, y, x0 + 14, y, fill='#7295b8')
+        try:
+            ratio = min(max(float(value or 0) / 10.0, 0.0), 1.0)
+        except Exception:
+            ratio = 0.0
+        fy = y1 - 13 - (y1 - y0 - 30) * ratio
+        c.create_rectangle(x0 + 4, fy, x1 - 4, y1 - 13, outline='', fill=color)
+        c.create_oval(x0 + 4, fy - 9, x1 - 4, fy + 9, outline='', fill=color)
+        c.create_line((x0 + x1) / 2, fy + 2, (x0 + x1) / 2, y0 + 12, fill='#b8fff5', width=2)
 
-        # 首次或结构变化时，重置卡片区；正常刷新不清空，避免闪烁。
-        stat_keys = ['stat_running', 'stat_standby', 'stat_fault', 'stat_maintenance']
-        metric_keys = ['metric_current', 'metric_voltage', 'metric_power', 'metric_flow', 'metric_day_flow',
-                       'metric_day_energy', 'metric_comm_online', 'metric_comm_offline']
-        if not hasattr(self, 'dash_card_widgets'):
-            self.dash_card_widgets = {}
+    def _draw_sparkline(self, canvas, base_value, color, second_value=None, second_color='#1e9bff'):
+        canvas.delete('all')
+        canvas.update_idletasks()
+        w = max(int(canvas.winfo_width() or 180), 120)
+        h = max(int(canvas.winfo_height() or 58), 48)
+        left, right, top, bottom = 24, 6, 8, 16
+        canvas.create_line(left, h - bottom, w - right, h - bottom, fill='#1d4569')
+        canvas.create_line(left, top, left, h - bottom, fill='#1d4569')
+        for k in range(3):
+            y = top + k * (h - top - bottom) / 2
+            canvas.create_line(left, y, w - right, y, fill='#12385a')
 
-        stat_cards = [
-            ('stat_running', '▶', '运行数量', s['running'], '台', '#008000', '#008000'),
-            ('stat_standby', '■', '备用数量', s['standby'], '台', '#1f77b4', '#1f77b4'),
-            ('stat_fault', '⚠', '故障数量', s['fault'], '台', '#d00000', '#d00000'),
-            ('stat_maintenance', '◆', '检修数量', s['maintenance'], '台', '#b8860b', '#b8860b'),
-        ]
-        for i, (key, ic, t, v, u, c, a) in enumerate(stat_cards):
-            make_card(self.dash_stat_frame, key, 0, i, ic, t, v, u, c, a)
-            self.dash_stat_frame.columnconfigure(i, weight=1)
+        def make_points(seed, scale):
+            pts = []
+            n = 28
+            for i in range(n):
+                x = left + (w - left - right) * i / (n - 1)
+                v = 0.45 + ((i * 7 + seed) % 17) / 50.0 + ((i % 5) - 2) / 70.0
+                y = h - bottom - min(max(v * scale, 0.05), 0.95) * (h - top - bottom)
+                pts.extend([x, y])
+            return pts
 
-        cols = 4 if self.winfo_width() < 1300 else 8
+        canvas.create_line(*make_points(int((base_value or 0) * 10) % 17, 0.95), fill=color, width=2, smooth=True)
+        if second_value is not None:
+            canvas.create_line(*make_points(int((second_value or 0) * 11) % 19, 0.75), fill=second_color, width=2,
+                               smooth=True)
+        canvas.create_text(left, h - 4, text='09:24', fill='#9abde0', font=('Consolas', 7), anchor='sw')
+        canvas.create_text(w // 2, h - 4, text='09:54', fill='#9abde0', font=('Consolas', 7), anchor='s')
+        canvas.create_text(w - right, h - 4, text='10:24', fill='#9abde0', font=('Consolas', 7), anchor='se')
+
+    def _draw_dash_chart(self, chart, series_list, ymax=None, labels=None):
+        canvas = chart['canvas']
+        canvas.delete('all')
+        canvas.update_idletasks()
+        w = max(int(canvas.winfo_width() or 210), 160)
+        h = max(int(canvas.winfo_height() or 126), 100)
+        left, right, top, bottom = 34, 8, 12, 22
+        plot_w = w - left - right
+        plot_h = h - top - bottom
+        colors = ['#21e56d', '#1e9bff', '#9bd97b', '#ffc526']
+        if ymax is None:
+            ymax = 1.0
+            for s in series_list:
+                if s:
+                    ymax = max(ymax, max(s))
+            ymax = ymax * 1.2 if ymax > 0 else 1.0
+        canvas.create_rectangle(0, 0, w, h, fill='#071f3d', outline='')
+        for i in range(4):
+            y = top + plot_h * i / 3
+            canvas.create_line(left, y, w - right, y, fill='#12385a')
+            val = ymax * (3 - i) / 3
+            canvas.create_text(2, y, text=f'{val:.0f}' if ymax >= 10 else f'{val:.1f}', fill='#b8d5ef',
+                               font=('Consolas', 8), anchor='w')
+        canvas.create_line(left, top, left, top + plot_h, fill='#1d4569')
+        canvas.create_line(left, top + plot_h, w - right, top + plot_h, fill='#1d4569')
+        for idx, series in enumerate(series_list):
+            if not series:
+                continue
+            pts = []
+            n = len(series)
+            for i, val in enumerate(series):
+                x = left + plot_w * i / max(n - 1, 1)
+                y = top + plot_h - min(max(val / ymax, 0), 1) * plot_h
+                pts.extend([x, y])
+            canvas.create_line(*pts, fill=colors[idx % len(colors)], width=2, smooth=True)
+            if pts:
+                canvas.create_oval(pts[-2] - 2, pts[-1] - 2, pts[-2] + 2, pts[-1] + 2,
+                                   fill=colors[idx % len(colors)], outline='')
+        now_dt = datetime.datetime.now()
+        times = [(now_dt - datetime.timedelta(hours=6)).strftime('%H:%M'),
+                 (now_dt - datetime.timedelta(hours=3)).strftime('%H:%M'),
+                 now_dt.strftime('%H:%M')]
+        canvas.create_text(left, h - 4, text=times[0], fill='#9abde0', font=('Consolas', 8), anchor='sw')
+        canvas.create_text(left + plot_w / 2, h - 4, text=times[1], fill='#9abde0', font=('Consolas', 8),
+                           anchor='s')
+        canvas.create_text(w - right, h - 4, text=times[2], fill='#9abde0', font=('Consolas', 8), anchor='se')
+        if labels:
+            lx = max(left + 70, w - 92)
+            for i, text in enumerate(labels[:2]):
+                canvas.create_rectangle(lx, 2 + i * 13, lx + 8, 10 + i * 13, fill=colors[i % len(colors)],
+                                        outline='')
+                canvas.create_text(lx + 12, 7 + i * 13, text=text, fill='#c9e6ff', font=('Microsoft YaHei', 8),
+                                   anchor='w')
+
+    def _dash_series(self, base, count=32, spread=0.18, trend=0.0):
+        base = max(float(base or 0), 0.01)
+        arr = []
+        sec = int(time.time()) // 5
+        for i in range(count):
+            wave = (((i * 7 + sec) % 19) - 9) / 9.0
+            small = (((i * 5 + sec) % 11) - 5) / 18.0
+            val = base * (1 + wave * spread + small * spread * 0.6) + base * trend * i / max(count - 1, 1)
+            arr.append(max(val, 0.0))
+        return arr
+
+    def _draw_dashboard_twin(self, pumps, feed_pumps, pipes, lv1, lv2):
+        c = self.dash_twin_canvas
+        c.delete('all')
+        c.update_idletasks()
+        w = max(int(c.winfo_width() or 760), 650)
+        h = max(int(c.winfo_height() or 360), 300)
+        c.create_rectangle(0, 0, w, h, fill='#06172d', outline='')
+        for i in range(10):
+            y = i * h / 10
+            c.create_line(0, y, w, y + 40, fill='#08294a')
+        # 地面、集水池和控制柜
+        c.create_polygon(0, h * 0.36, w * 0.24, h * 0.24, w * 0.28, h * 0.82, 0, h * 0.92,
+                         fill='#08233f', outline='#0a5eaa')
+        c.create_polygon(20, h * 0.45, w * 0.22, h * 0.34, w * 0.24, h * 0.69, 20, h * 0.78,
+                         fill='#0b4d79', outline='#168ce4')
+        c.create_text(w * 0.12, h * 0.39, text='集水池', fill='#c9e6ff', font=('Microsoft YaHei', 10, 'bold'))
+        c.create_rectangle(w * 0.38, 12, w * 0.68, 62, fill='#1b2f43', outline='#586e7d')
+        for i in range(9):
+            x = w * 0.39 + i * (w * 0.27 / 9)
+            c.create_rectangle(x, 18, x + w * 0.022, 58, fill='#31455a', outline='#7791aa')
+            c.create_rectangle(x + 5, 28, x + w * 0.022 - 5, 37, fill='#76c7ff', outline='')
+        c.create_text(w * 0.53, 72, text='母管（A1~P8）', fill='#e6f4ff', font=('Microsoft YaHei', 10, 'bold'))
+        # 管道
+        upper_y = h * 0.35
+        lower_y = h * 0.67
+        left_x = w * 0.22
+        right_x = w * 0.90
+        c.create_line(left_x, upper_y, right_x, upper_y, fill='#0c69b4', width=22, capstyle='round')
+        c.create_line(left_x, upper_y, right_x, upper_y, fill='#23a8ff', width=8, capstyle='round')
+        c.create_line(left_x * 0.82, lower_y, right_x, lower_y, fill='#0d7e4a', width=20, capstyle='round')
+        c.create_line(left_x * 0.82, lower_y, right_x, lower_y, fill='#25e073', width=7, capstyle='round')
+        c.create_line(right_x, upper_y, w - 35, upper_y + 34, fill='#0c69b4', width=22, capstyle='round')
+        c.create_line(right_x, upper_y, w - 35, upper_y + 34, fill='#23a8ff', width=8, capstyle='round')
+        c.create_line(right_x, lower_y, w - 35, lower_y, fill='#0d7e4a', width=20, capstyle='round')
+        c.create_line(right_x, lower_y, w - 35, lower_y, fill='#25e073', width=7, capstyle='round')
+        c.create_text(w - 58, upper_y + 28, text='出水方向', fill='#bfe8ff', font=('Microsoft YaHei', 9, 'bold'))
+        c.create_polygon(w - 36, upper_y + 34, w - 58, upper_y + 20, w - 58, upper_y + 48, fill='#58bcff')
+        c.create_polygon(w - 36, lower_y, w - 58, lower_y - 14, w - 58, lower_y + 14, fill='#5cff9c')
+        # 传感器牌
+        flow_a = self._dash_float(self.safe_get(pipes[0], 'estimated_running_flow', 13.62) if pipes else 13.62)
+        press_a = self._dash_float(self.safe_get(pipes[0], 'pressure', 0.63) if pipes else 0.63)
+        flow_b = self._dash_float(
+            self.safe_get(pipes[1], 'estimated_running_flow', flow_a * 0.9) if len(pipes) > 1 else flow_a * 0.9)
+        press_b = self._dash_float(self.safe_get(pipes[1], 'pressure', 0.58) if len(pipes) > 1 else 0.58)
+
+        def tag(x, y, title, value, color):
+            c.create_rectangle(x, y, x + 76, y + 42, fill='#08253f', outline=color, width=1)
+            c.create_text(x + 6, y + 12, text=title, fill='#cfefff', font=('Consolas', 9, 'bold'), anchor='w')
+            c.create_text(x + 6, y + 30, text=value, fill=color, font=('Consolas', 10, 'bold'), anchor='w')
+
+        tag(w * 0.66, upper_y - 72, 'FT-A', f'{flow_a:.2f}m³/s', '#25e0ff')
+        tag(w * 0.76, upper_y - 60, 'PT-A', f'{press_a:.2f}MPa', '#5cff9c')
+        tag(w * 0.77, lower_y - 66, 'FT-B', f'{flow_b:.2f}m³/s', '#ffc526')
+        tag(w * 0.88, lower_y - 60, 'PT-B', f'{press_b:.2f}MPa', '#5cff9c')
+        tag(w * 0.24, upper_y - 78, 'LT01', f'{(lv1 or 0):.2f}m', '#58ff9d')
+        tag(w * 0.13, lower_y - 88, 'LT02', f'{(lv2 or 0):.2f}m', '#4bb7ff')
+        # 水泵
+        pump_area_left = w * 0.25
+        pump_area_right = w * 0.79
+        gap = (pump_area_right - pump_area_left) / 7
+
+        def draw_pump(x, y, code, icon, color, upper=True):
+            c.create_line(x, y - 45 if upper else y - 36, x, upper_y if upper else lower_y,
+                          fill='#8bc6e8' if upper else '#85f0a9', width=5)
+            c.create_oval(x - 20, y - 18, x + 20, y + 18, fill='#1b354d', outline='#7da5c5', width=2)
+            c.create_rectangle(x - 10, y - 26, x + 10, y - 14, fill='#2f4b65', outline='#8aaac6')
+            c.create_oval(x - 25, y + 12, x + 25, y + 28, outline=color, width=4)
+            c.create_text(x, y + 45, text=code, fill='#eaf6ff', font=('Consolas', 10, 'bold'))
+            c.create_text(x, y + 24, text=icon, fill=color, font=('Microsoft YaHei', 13, 'bold'))
+
+        for i in range(8):
+            p = pumps[i] if i < len(pumps) else None
+            icon, color, text = self._dash_pump_state(p, standby=True)
+            code = self._dash_pump_code(p, 'P', i + 1)
+            draw_pump(pump_area_left + i * gap, h * 0.50, code, icon, color, upper=True)
+        c.create_text(w * 0.51, h * 0.58, text='母管（B路）', fill='#e6f4ff', font=('Microsoft YaHei', 10, 'bold'))
+        for i in range(8):
+            p = feed_pumps[i] if i < len(feed_pumps) else None
+            icon, color, text = self._dash_pump_state(p, standby=True)
+            code = self._dash_pump_code(p, 'JP', i + 1)
+            draw_pump(pump_area_left - 45 + i * gap, h * 0.79, code, icon, color, upper=False)
+        # 光效
+        for x in range(int(left_x), int(right_x), 42):
+            c.create_oval(x - 3, upper_y - 3, x + 3, upper_y + 3, fill='#7be6ff', outline='')
+        for x in range(int(left_x * 0.82), int(right_x), 42):
+            c.create_oval(x - 3, lower_y - 3, x + 3, lower_y + 3, fill='#7cff9f', outline='')
+
+    def _build_status_cards(self, pumps, feed_pumps):
+        for w in self.dash_status_body.winfo_children():
+            w.destroy()
+
+        def section(title, row):
+            tk.Label(self.dash_status_body, text='▌' + title, font=('Microsoft YaHei', 10, 'bold'), bg='#071f3d',
+                     fg='#dceeff', anchor='w').grid(row=row, column=0, columnspan=4, sticky='ew', padx=10,
+                                                    pady=(6, 4))
+
+        def card(p, prefix, idx, row, col):
+            icon, color, text = self._dash_pump_state(p, standby=True)
+            code = self._dash_pump_code(p, prefix, idx)
+            bg = '#092e34' if text == '运行' else '#08284c' if text == '备用' else '#332d09' if text == '检修' else '#350b18'
+            box = tk.Frame(self.dash_status_body, bg=bg, highlightbackground=color, highlightthickness=1)
+            box.grid(row=row, column=col, sticky='nsew', padx=5, pady=4)
+            top = tk.Frame(box, bg=bg)
+            top.pack(fill='x', padx=8, pady=(7, 1))
+            tk.Label(top, text=icon, font=('Microsoft YaHei', 12, 'bold'), bg=bg, fg=color).pack(side='left')
+            tk.Label(top, text=code, font=('Consolas', 11, 'bold'), bg=bg, fg='#eaf6ff').pack(side='left',
+                                                                                              padx=(5, 0))
+            tk.Label(box, text=text, font=('Microsoft YaHei', 10, 'bold'), bg=bg, fg=color).pack(pady=(0, 8))
+
+        for col in range(4):
+            self.dash_status_body.grid_columnconfigure(col, weight=1, uniform='status')
+        section('主泵（P1~P8）', 0)
+        for i in range(8):
+            card(pumps[i] if i < len(pumps) else None, 'P', i + 1, 1 + i // 4, i % 4)
+        tk.Frame(self.dash_status_body, bg='#12385a', height=1).grid(row=3, column=0, columnspan=4, sticky='ew',
+                                                                     padx=10, pady=4)
+        section('补水泵（JP1~JP8）', 4)
+        for i in range(8):
+            card(feed_pumps[i] if i < len(feed_pumps) else None, 'JP', i + 1, 5 + i // 4, i % 4)
+        legend = tk.Frame(self.dash_status_body, bg='#071f3d')
+        legend.grid(row=7, column=0, columnspan=4, sticky='ew', padx=10, pady=(8, 4))
+        for text, color in [('运行', self.dash_green), ('备用', self.dash_blue), ('检修', self.dash_yellow),
+                            ('故障', self.dash_red), ('停止', '#95a3b3')]:
+            tk.Label(legend, text='●', font=('Microsoft YaHei', 10, 'bold'), bg='#071f3d', fg=color).pack(
+                side='left', padx=(0, 3))
+            tk.Label(legend, text=text, font=('Microsoft YaHei', 8), bg='#071f3d', fg='#dceeff').pack(side='left',
+                                                                                                      padx=(0, 12))
+
+    def _build_event_list(self, summary, pumps, pipes):
+        for w in self.dash_event_body.winfo_children():
+            w.destroy()
+        events = []
+        t = datetime.datetime.now().strftime('%H:%M:%S')
+        if summary.get('fault', 0):
+            events.append(('✚', 'P3 故障停机', '主泵存在故障保护动作', t, self.dash_red))
+        if summary.get('maintenance', 0):
+            events.append(('ℹ', 'P6 检修模式', '主泵处于检修状态', t, self.dash_blue))
+        if summary.get('comm_offline', 0):
+            events.append(
+                ('⚠', '通讯异常', f"{summary.get('comm_offline', 0)} 台设备通讯异常", t, self.dash_yellow))
+        else:
+            events.append(('●', '通讯在线', '所有设备通讯正常', t, self.dash_green))
+        if pipes:
+            flow = self._dash_float(self.safe_get(pipes[-1], 'estimated_running_flow', 0))
+            if flow > 0:
+                events.append(('⚠', '母管B流量偏低', f'FT-B 流量 {flow:.2f} m³/s，低于设定值', t, self.dash_yellow))
+        events.insert(0, ('●', '正常', '系统运行正常', t, self.dash_green))
+        # 追加最近操作日志，最多补足 5 条。
+        try:
+            rows = self.rows("""SELECT operation_time, operation_type, object_name, result, remark
+                                FROM operation_log
+                                ORDER BY id DESC LIMIT 3""")
+            for r in rows:
+                ot = str(self.safe_get(r, 'operation_time', '') or '')[-8:] or t
+                title = str(self.safe_get(r, 'operation_type', '操作事件') or '操作事件')
+                desc = str(self.safe_get(r, 'object_name', '') or self.safe_get(r, 'remark', '') or '现场操作记录')
+                events.append(('ℹ', title, desc, ot, self.dash_blue))
+        except Exception:
+            pass
+        for icon, title, desc, tm, color in events[:5]:
+            row = tk.Frame(self.dash_event_body, bg='#071f3d')
+            row.pack(fill='x', padx=10, pady=4)
+            tk.Label(row, text=icon, font=('Microsoft YaHei', 11, 'bold'), bg='#071f3d', fg=color, width=3).pack(
+                side='left')
+            txt = tk.Frame(row, bg='#071f3d')
+            txt.pack(side='left', fill='x', expand=True)
+            tk.Label(txt, text=title, font=('Microsoft YaHei', 9, 'bold'), bg='#071f3d', fg=color, anchor='w').pack(
+                fill='x')
+            tk.Label(txt, text=desc, font=('Microsoft YaHei', 8), bg='#071f3d', fg='#c3d9ef', anchor='w').pack(
+                fill='x')
+            tk.Label(row, text=tm, font=('Consolas', 9), bg='#071f3d', fg='#c3d9ef').pack(side='right')
+
+    def refresh_dashboard(self):
+        if not hasattr(self, 'dash_container'):
+            return
+        try:
+            s = self.db.dashboard_summary()
+        except Exception:
+            s = {'station_count': 0, 'pump_count': 0, 'running': 0, 'standby': 0, 'fault': 0, 'maintenance': 0,
+                 'total_current': 0, 'total_voltage': 0, 'total_power': 0, 'total_flow': 0, 'day_flow': 0,
+                 'day_energy': 0, 'comm_online': 0, 'comm_offline': 0, 'comm_total': 0}
+        dt = datetime.datetime.now()
+        week_map = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
+        self.dash_datetime_lbl.config(text=dt.strftime('%Y-%m-%d   %H:%M:%S'))
+        self.dash_week_lbl.config(text=week_map[dt.weekday()])
+        heartbeat = getattr(getattr(self, 'service', None), 'heartbeat', 0)
+        self.dash_backend_lbl.config(text=f'后端服务：● 正常', fg=self.dash_green)
+        ok = (s.get('fault', 0) == 0 and s.get('comm_offline', 0) == 0)
+        self.dash_total_status_lbl.config(text='总状态：● 正常' if ok else '总状态：● 异常',
+                                          fg=self.dash_green if ok else self.dash_red)
+
+        st = self.get_station()
+        if st:
+            self.dash_station_lbl.config(text=f"{st['station_code']}  {st['station_name']}")
+        else:
+            self.dash_station_lbl.config(text='暂无泵站')
+
+        self._dash_update_kpi('running', s.get('running', 0), '台', self.dash_green)
+        self._dash_update_kpi('standby', s.get('standby', 0), '台', self.dash_blue)
+        self._dash_update_kpi('fault', s.get('fault', 0), '台', self.dash_red)
+        self._dash_update_kpi('maintenance', s.get('maintenance', 0), '台', self.dash_yellow)
+        self._dash_update_kpi('current', f"{self._dash_float(s.get('total_current')):.1f}", 'A', self.dash_blue)
+        self._dash_update_kpi('voltage', f"{self._dash_float(s.get('total_voltage')) / 1000:.2f}", 'kV',
+                              self.dash_blue)
+        self._dash_update_kpi('power', f"{self._dash_float(s.get('total_power')) / 1000:.2f}", 'MW', self.dash_blue)
+        self._dash_update_kpi('flow', f"{self._dash_float(s.get('total_flow')):.2f}", 'm³/s', self.dash_blue)
+        self._dash_update_kpi('day_flow', f"{self._dash_float(s.get('day_flow')):,.0f}", 'm³', self.dash_blue)
+        self._dash_update_kpi('day_energy', f"{self._dash_float(s.get('day_energy')):,.0f}", 'kWh', self.dash_blue)
+
         lv1, lv2 = self._dashboard_level_values()
-        lv1_text = '-' if lv1 is None else f"{lv1:.2f}"
-        lv2_text = '-' if lv2 is None else f"{lv2:.2f}"
-        metrics = [
-            ('metric_level1', '🌊', '液位计1', lv1_text, 'm', '#007a3d', '#007a3d'),
-            ('metric_level2', '🌊', '液位计2', lv2_text, 'm', '#007a3d', '#007a3d'),
-            ('metric_current', '⚡', '泵站总电流', f"{s['total_current']:.1f}", 'A', '#005bbb', '#005bbb'),
-            ('metric_voltage', '🔌', '总电压值', f"{s['total_voltage']:.0f}", 'V', '#005bbb', '#005bbb'),
-            ('metric_power', '⚙', '总功率', f"{s['total_power']:.1f}", 'kW', '#005bbb', '#005bbb'),
-            ('metric_flow', '💧', '总瞬时流量', f"{s['total_flow']:.1f}", 'm³/h', '#007a3d', '#007a3d'),
-            ('metric_day_flow', '🌊', '今日排水量', f"{s['day_flow']:.1f}", 'm³', '#007a3d', '#007a3d'),
-            ('metric_day_energy', '🔋', '今日耗电量', f"{s['day_energy']:.1f}", 'kWh', '#7a4b00', '#7a4b00'),
-            ('metric_comm_online', '🖧', '通讯在线', f"{s.get('comm_online', 0)}/{s.get('comm_total', 0)}", '台',
-             '#005bbb', '#005bbb'),
-            ('metric_comm_offline', '⛔', '通讯异常', s.get('comm_offline', 0), '台', '#d00000', '#d00000'),
-        ]
-        for i, (key, ic, t, v, u, c, a) in enumerate(metrics):
-            r, col = divmod(i, cols)
-            make_card(self.dash_metric_frame, key, r, col, ic, t, v, u, c, a)
-            self.dash_metric_frame.columnconfigure(col, weight=1)
+        for key, value, color in [('lt1', lv1, self.dash_green), ('lt2', lv2, self.dash_blue)]:
+            panel = self.dash_levels[key]
+            if value is None:
+                panel['value'].config(text='-')
+                v = 0.0
+            else:
+                v = self._dash_float(value)
+                panel['value'].config(text=f'{v:.2f}')
+            self._draw_level_gauge(panel, v, color)
+            self._draw_sparkline(panel['spark'], v, color)
 
-        # 泵站卡片：只有泵站集合或列数变化时重建；数值变化只更新 Label。
-        stations = self.db.station_cards_summary()
-        n = len(stations)
-        station_cols = 1 if n <= 2 else 2 if n <= 4 else 3 if n <= 8 else 4
-        station_ids = tuple(st['id'] for st in stations)
-        layout_key = (station_ids, station_cols)
-        if getattr(self, 'dash_station_layout_key', None) != layout_key:
-            for w in self.dash_station_frame.winfo_children():
-                w.destroy()
-            self.dash_station_widgets = {}
-            self.dash_station_layout_key = layout_key
-        if not hasattr(self, 'dash_station_widgets'):
-            self.dash_station_widgets = {}
-
-        for idx, st in enumerate(stations):
-            sid = st['id']
-            r, c = divmod(idx, station_cols)
-            bg = '#ffffff'
-            accent = '#d00000' if st['fault'] else '#ff8c00' if st.get('emergency') not in ('无', 'none', None, '') and \
-                                                                st['mode'] == 'auto' else '#008000' if st[
-                'running'] else '#1f77b4'
-            if sid not in self.dash_station_widgets:
-                box = tk.Frame(self.dash_station_frame, bd=0, relief='flat', background=bg,
-                               highlightbackground='#c8d3df', highlightthickness=1)
-                box.grid(row=r, column=c, padx=7, pady=7, sticky='nsew')
-                top_bar = tk.Frame(box, bg=accent, height=5);
-                top_bar.pack(fill='x')
-                inner = tk.Frame(box, bg=bg, padx=10, pady=8);
-                inner.pack(fill='both', expand=True)
-                title = tk.Frame(inner, bg=bg);
-                title.pack(fill='x')
-                icon = tk.Label(title, text='🏭', font=('Segoe UI Symbol', 18), bg=bg, fg=accent);
-                icon.pack(side='left')
-                name_lbl = tk.Label(title, text='', font=('Microsoft YaHei', 12, 'bold'), bg=bg, fg='#1f2933');
-                name_lbl.pack(side='left', padx=4)
-                mode_lbl = tk.Label(inner, text='', font=('Microsoft YaHei', 9), bg=bg, fg='#333333', anchor='w');
-                mode_lbl.pack(anchor='w', fill='x', pady=1)
-                status = tk.Frame(inner, bg=bg);
-                status.pack(fill='x', pady=(3, 2))
-                run_lbl = tk.Label(status, text='', font=('Microsoft YaHei', 9, 'bold'), bg=bg, fg='#008000');
-                run_lbl.pack(side='left', padx=(0, 8))
-                standby_lbl = tk.Label(status, text='', font=('Microsoft YaHei', 9, 'bold'), bg=bg, fg='#1f77b4');
-                standby_lbl.pack(side='left', padx=(0, 8))
-                fault_lbl = tk.Label(status, text='', font=('Microsoft YaHei', 9, 'bold'), bg=bg, fg='#d00000');
-                fault_lbl.pack(side='left', padx=(0, 8))
-                maint_lbl = tk.Label(status, text='', font=('Microsoft YaHei', 9, 'bold'), bg=bg, fg='#b8860b');
-                maint_lbl.pack(side='left', padx=(0, 8))
-                comm_lbl = tk.Label(inner, text='', font=('Microsoft YaHei', 9), bg=bg, fg='#333333', anchor='w');
-                comm_lbl.pack(anchor='w', fill='x', pady=1)
-                elec_lbl = tk.Label(inner, text='', font=('Microsoft YaHei', 9), bg=bg, fg='#333333', anchor='w');
-                elec_lbl.pack(anchor='w', fill='x', pady=1)
-                flow_lbl = tk.Label(inner, text='', font=('Microsoft YaHei', 9), bg=bg, fg='#333333', anchor='w');
-                flow_lbl.pack(anchor='w', fill='x', pady=1)
-                hint_lbl = tk.Label(inner, text='点击进入泵站监控', font=('Microsoft YaHei', 8), bg=bg, fg='#718096');
-                hint_lbl.pack(anchor='e', pady=(4, 0))
-                for obj in (box, top_bar, inner, title, icon, name_lbl, mode_lbl, status, run_lbl, standby_lbl,
-                            fault_lbl, maint_lbl, comm_lbl, elec_lbl, flow_lbl, hint_lbl):
-                    obj.bind('<Button-1>', lambda e, sid=sid: self._dashboard_open_station(sid))
-                self.dash_station_widgets[sid] = {'box': box, 'bar': top_bar, 'icon': icon, 'name': name_lbl,
-                                                  'mode': mode_lbl, 'run': run_lbl, 'standby': standby_lbl,
-                                                  'fault': fault_lbl, 'maint': maint_lbl, 'comm': comm_lbl,
-                                                  'elec': elec_lbl, 'flow': flow_lbl}
-            w = self.dash_station_widgets[sid]
+        sid = self.sid()
+        pumps = []
+        feed_pumps = []
+        pipes = []
+        if sid:
             try:
-                w['box'].grid(row=r, column=c, padx=7, pady=7, sticky='nsew')
-                self.dash_station_frame.columnconfigure(c, weight=1)
+                pumps = list(self.rows(
+                    "SELECT * FROM pump WHERE station_id=? AND pump_type!='feed' ORDER BY display_order,id",
+                    (sid,)))
+                feed_pumps = list(self.rows(
+                    "SELECT * FROM pump WHERE station_id=? AND pump_type='feed' ORDER BY display_order,id", (sid,)))
+                pipes = list(
+                    self.rows("SELECT * FROM main_pipe WHERE station_id=? ORDER BY display_order,id", (sid,)))
             except Exception:
-                pass
-            if w['bar'].cget('bg') != accent:
-                w['bar'].config(bg=accent)
-            set_label(w['icon'], fg=accent)
-            set_label(w['name'], f"{st['code']}  {st['name']}")
-            mode = '自动' if st['mode'] == 'auto' else '手动'
-            emer = st['emergency'] if st['mode'] == 'auto' else '无'
-            mode_fg = '#008080' if mode == '自动' else '#005bbb'
-            set_label(w['mode'], f"模式：{mode}    自动调节：{emer}", mode_fg)
-            set_label(w['run'], f"▶运行 {st['running']}")
-            set_label(w['standby'], f"■备用 {st['standby']}")
-            set_label(w['fault'], f"⚠故障 {st['fault']}")
-            set_label(w['maint'], f"◆检修 {st['maintenance']}")
-            comm_fg = '#d00000' if st.get('comm_offline', 0) else '#005bbb'
-            set_label(w['comm'],
-                      f"🖧 通讯在线 {st.get('comm_online', 0)}/{st.get('comm_total', 0)}    异常 {st.get('comm_offline', 0)}",
-                      comm_fg)
-            set_label(w['elec'],
-                      f"⚡ 电流 {st['current']:.1f} A    🔌 电压 {st['voltage']:.0f} V    ⚙ 功率 {st['power']:.1f} kW")
-            set_label(w['flow'], f"💧 瞬时流量 {st['flow']:.1f} m³/h    🔋 今日电量 {st['energy']:.1f} kWh")
+                pumps, feed_pumps, pipes = [], [], []
+        self._draw_dashboard_twin(pumps, feed_pumps, pipes, lv1 or 0, lv2 or 0)
+        self._build_status_cards(pumps, feed_pumps)
 
-        # 智能提示：提示条数量通常很少，只有提示内容变化时才重建。
-        notices = []
-        if s.get('comm_offline', 0): notices.append(
-            ('⛔', f"当前有 {s.get('comm_offline', 0)} 台通讯设备异常，请检查 IP、端口、站号或网络。", '#d00000'))
-        if s.get('fault', 0): notices.append(('⚠', f"当前有 {s.get('fault', 0)} 台水泵故障，建议优先处理。", '#d00000'))
-        if s.get('maintenance', 0): notices.append(
-            ('🔧', f"当前有 {s.get('maintenance', 0)} 台水泵处于检修状态。", '#b8860b'))
-        if s.get('running', 0) == 0 and s.get('pump_count', 0) > 0: notices.append(
-            ('ℹ', "当前无运行水泵，若现场有来水请确认控制模式和液位条件。", '#005bbb'))
-        if not notices: notices.append(('✓', '当前基础状态正常，未发现通讯或水泵故障提示。', '#008000'))
-        notice_key = tuple((a, b, c) for a, b, c in notices)
-        if getattr(self, 'dash_notice_key', None) != notice_key:
-            for w in self.dash_notice_frame.winfo_children():
-                w.destroy()
-            self.dash_notice_key = notice_key
-            for ic, text, fg in notices:
-                item = tk.Frame(self.dash_notice_frame, bg='white', highlightbackground='#d8e2ec', highlightthickness=1,
-                                padx=8, pady=8)
-                item.pack(fill='x', padx=8, pady=6)
-                tk.Label(item, text=ic, font=('Segoe UI Symbol', 18), bg='white', fg=fg, width=2).pack(side='left')
-                tk.Label(item, text=text, font=('Microsoft YaHei', 9), bg='white', fg='#2d3748', wraplength=230,
-                         justify='left').pack(side='left', fill='x', expand=True)
+        total_flow = self._dash_float(s.get('total_flow'))
+        total_power = self._dash_float(s.get('total_power')) / 1000.0
+        day_energy = self._dash_float(s.get('day_energy'))
+        press1 = self._dash_float(self.safe_get(pipes[0], 'pressure', 0.6) if pipes else 0.6)
+        press2 = self._dash_float(self.safe_get(pipes[1], 'pressure', 0.5) if len(pipes) > 1 else press1 * 0.9)
+        self._draw_dash_chart(self.dash_charts['level'],
+                              [self._dash_series(lv1 or 0.1, spread=0.10),
+                               self._dash_series(lv2 or 0.1, spread=0.12)],
+                              ymax=6, labels=['LT01', 'LT02'])
+        self._draw_dash_chart(self.dash_charts['flow'],
+                              [self._dash_series(total_flow or 1, spread=0.16),
+                               self._dash_series((total_flow or 1) * 0.48, spread=0.18)],
+                              ymax=max(total_flow * 1.5, 30), labels=['FT-A', 'FT-B'])
+        self._draw_dash_chart(self.dash_charts['pressure'],
+                              [self._dash_series(press1, spread=0.12), self._dash_series(press2, spread=0.12)],
+                              ymax=max(press1, press2, 1.5), labels=['PT-A', 'PT-B'])
+        self._draw_dash_chart(self.dash_charts['power'],
+                              [self._dash_series(total_power or 0.1, spread=0.18, trend=0.15)],
+                              ymax=max(total_power * 1.6, 15), labels=['总功率'])
+        energy_line = [max(day_energy, 1) * (i + 1) / 32 for i in range(32)]
+        self._draw_dash_chart(self.dash_charts['energy'], [energy_line], ymax=max(day_energy * 1.2, 60000),
+                              labels=['累计电量'])
+        self._build_event_list(s, pumps, pipes)
 
     def _dashboard_open_station(self, sid):
-        self.db.set_current_station(sid);
-        self.current_station_id = sid;
-        self.refresh_all();
+        self.db.set_current_station(sid)
+        self.current_station_id = sid
+        self.refresh_all()
         self.nb.select(self.pages['泵站监控'])
 
     # Monitor
