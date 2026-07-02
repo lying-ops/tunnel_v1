@@ -19,8 +19,6 @@ reports/
 *.json
 *.glb
 
-*.bat
-
 sample_models/
 
 *.png

@@ -4008,56 +4008,46 @@ class App(tk.Tk):
         top.pack(fill='x', padx=8, pady=6)
         ttk.Label(top, text='孪生泵站').pack(side='left', padx=(4, 4))
         self.twin_station_var = tk.StringVar()
-        self.twin_station_combo = ttk.Combobox(top, textvariable=self.twin_station_var, state='readonly', width=28)
+        self.twin_station_combo = ttk.Combobox(top, textvariable=self.twin_station_var, state='readonly', width=22)
         self.twin_station_combo.pack(side='left', padx=4)
         self.twin_station_combo.bind('<<ComboboxSelected>>', lambda e: self.switch_twin_station())
-        ttk.Label(top, text='模型文件').pack(side='left', padx=(16, 4))
+        ttk.Label(top, text='模型文件').pack(side='left', padx=(10, 4))
         self.twin_model_path = tk.StringVar()
-        ttk.Entry(top, textvariable=self.twin_model_path, width=46).pack(side='left', padx=4, fill='x', expand=True)
-        ttk.Button(top, text='导入模型', command=self.browse_twin_model).pack(side='left', padx=3)
-        ttk.Button(top, text='保存绑定', command=self.save_twin_model).pack(side='left', padx=3)
-        ttk.Button(top, text='生成静态预览', command=self.refresh_twin_preview).pack(side='left', padx=3)
-        ttk.Button(top, text='打开GLB三维查看器', command=self.open_twin_model_viewer).pack(side='left', padx=3)
-        ttk.Button(top, text='系统3D查看', command=self.open_twin_model_system_viewer).pack(side='left', padx=3)
-        ttk.Button(top, text='复位视角', command=self.reset_twin_view).pack(side='left', padx=3)
-        ttk.Button(top, text='放大', command=lambda: self.zoom_twin(1.15)).pack(side='left', padx=3)
-        ttk.Button(top, text='缩小', command=lambda: self.zoom_twin(0.87)).pack(side='left', padx=3)
+        ttk.Entry(top, textvariable=self.twin_model_path, width=34).pack(side='left', padx=4, fill='x', expand=True)
+        ttk.Button(top, text='导入模型', command=self.browse_twin_model).pack(side='left', padx=2)
+        ttk.Button(top, text='保存绑定', command=self.save_twin_model).pack(side='left', padx=2)
+        ttk.Button(top, text='扫描模型对象', command=self.scan_twin_model_objects).pack(side='left', padx=2)
+        ttk.Button(top, text='生成绑定表', command=self.generate_twin_binding).pack(side='left', padx=2)
+        ttk.Button(top, text='加载内嵌查看器', command=lambda: self.load_twin_in_page(force=True)).pack(side='left',
+                                                                                                        padx=2)
+        ttk.Button(top, text='外部GLB查看器', command=self.open_twin_model_viewer).pack(side='left', padx=2)
+        ttk.Button(top, text='模型状态检查', command=self.model_status_check).pack(side='left', padx=2)
+        ttk.Button(top, text='打开模型目录', command=self.open_twin_model_dir).pack(side='left', padx=2)
+        ttk.Button(top, text='清除模型', command=self.clear_twin_model).pack(side='left', padx=2)
 
         body = tk.Frame(f, bg='#edf4fb')
         body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
         left = tk.Frame(body, bg='#ffffff', bd=1, relief='solid')
         left.pack(side='left', fill='both', expand=True, padx=(0, 8))
-        right = tk.Frame(body, bg='#ffffff', bd=1, relief='solid', width=320)
-        right.pack(side='right', fill='y')
-        right.pack_propagate(False)
-
         title = tk.Frame(left, bg='#0f4c81', height=34)
         title.pack(fill='x')
         title.pack_propagate(False)
-        tk.Label(title, text='GLB三维模型查看 / 状态绑定', bg='#0f4c81', fg='white',
+        tk.Label(title, text='多泵站数字孪生：GLB查看 / 对象扫描 / 变量绑定', bg='#0f4c81', fg='white',
                  font=('Microsoft YaHei', 12, 'bold')).pack(side='left', padx=10)
-        self.twin_hint = tk.Label(title, text='当前页不再绘制水箱/管道示意；GLB查看器作为主查看方式', bg='#0f4c81',
+        self.twin_hint = tk.Label(title, text='V5.7.13：模型写入安全目录，避免旧版本路径/权限/重名冲突', bg='#0f4c81',
                                   fg='#d7ecff', font=('Microsoft YaHei', 9))
         self.twin_hint.pack(side='right', padx=10)
-        self.twin_canvas = tk.Canvas(left, bg='#0b1220', highlightthickness=0)
-        self.twin_canvas.pack(fill='both', expand=True)
-        self.twin_canvas.bind('<ButtonPress-1>', self.twin_mouse_down)
-        self.twin_canvas.bind('<B1-Motion>', self.twin_mouse_drag)
-        self.twin_canvas.bind('<ButtonRelease-1>', self.twin_mouse_up)
-        self.twin_canvas.bind('<MouseWheel>', self.twin_mouse_wheel)
-        self.twin_canvas.bind('<Configure>', lambda e: self.draw_twin_scene())
-
-        tk.Label(right, text='设备状态参数', bg='#ffffff', fg='#0f4c81', font=('Microsoft YaHei', 13, 'bold')).pack(
-            anchor='w', padx=12, pady=(12, 6))
-        self.twin_info = tk.Text(right, height=16, bg='#f8fbff', fg='#1f2933', font=('Consolas', 10), wrap='word',
-                                 relief='solid', bd=1)
-        self.twin_info.pack(fill='both', expand=False, padx=12, pady=6)
-        tk.Label(right, text='设备对象列表', bg='#ffffff', fg='#0f4c81', font=('Microsoft YaHei', 11, 'bold')).pack(
-            anchor='w', padx=12, pady=(10, 4))
-        self.twin_obj_list = tk.Listbox(right, height=14, font=('Microsoft YaHei', 10), activestyle='dotbox')
-        self.twin_obj_list.pack(fill='both', expand=True, padx=12, pady=(0, 12))
-        self.twin_obj_list.bind('<<ListboxSelect>>', lambda e: self.select_twin_from_list())
-        self.refresh_twin_station_combo()
+        self.twin_view_frame = tk.Frame(left, bg='#07101f')
+        self.twin_view_frame.pack(fill='both', expand=True)
+        self.twin_embedded_widget = None
+        self.twin_loaded_url = ''
+        self.twin_embed_status = '未加载'
+        try:
+            if hasattr(self, 'twin_info'):
+                self.twin_info.insert('end',
+                                      'V5.7.14_TwinBindFix 已启用：GLB 模型将保存到安全目录，不再依赖旧版本 twin_viewer 路径。\n')
+        except Exception as e:
+            self._log_twin_error('构建V5.7.13三维页面增强按钮失败', e)
 
     def refresh_twin_station_combo(self):
         if not hasattr(self, 'twin_station_combo'): return
@@ -4690,73 +4680,23 @@ model-viewer{{width:100%;height:calc(100vh - 54px);background:radial-gradient(ci
                                                        state='readonly', width=28)
         self.twin_binding_station_combo.pack(side='left', padx=4)
         self.twin_binding_station_combo.bind('<<ComboboxSelected>>', lambda e: self._twin_binding_switch_station())
-        ttk.Label(top, text='模型文件').pack(side='left', padx=(14, 4))
-        self.twin_binding_model_path = tk.StringVar()
-        ttk.Entry(top, textvariable=self.twin_binding_model_path, width=44).pack(side='left', padx=4, fill='x',
-                                                                                 expand=True)
-        ttk.Button(top, text='导入模型', command=self._twin_binding_browse_model).pack(side='left', padx=3)
-        ttk.Button(top, text='保存绑定', command=self._twin_binding_save_model).pack(side='left', padx=3)
-        ttk.Button(top, text='扫描模型对象', command=self._twin_binding_scan_objects).pack(side='left', padx=3)
-        ttk.Button(top, text='生成绑定表', command=self._twin_binding_generate).pack(side='left', padx=3)
-        ttk.Button(top, text='模型状态检查', command=self.model_status_check).pack(side='left', padx=2)
-        ttk.Button(top, text='打开模型目录', command=self.open_twin_model_dir).pack(side='left', padx=2)
-        ttk.Button(top, text='清除模型', command=self.clear_twin_model).pack(side='left', padx=2)
 
         body = tk.Frame(f, bg='#edf4fb')
         body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
         left = tk.Frame(body, bg='#ffffff', bd=1, relief='solid')
         left.pack(side='left', fill='both', expand=True, padx=(0, 8))
-        right = tk.Frame(body, bg='#ffffff', bd=1, relief='solid', width=330)
-        right.pack(side='right', fill='y')
-        right.pack_propagate(False)
-
         tk.Label(left, text='扫描绑定 / 设备参数', bg='#ffffff', fg='#0f4c81',
                  font=('Microsoft YaHei', 13, 'bold')).pack(anchor='w', padx=12, pady=(12, 6))
         self.twin_info = tk.Text(left, height=18, bg='#f8fbff', fg='#1f2933', font=('Consolas', 10), wrap='word',
                                  relief='solid', bd=1)
         self.twin_info.pack(fill='both', expand=True, padx=12, pady=6)
 
-        tk.Label(right, text='模型对象 / 设备列表', bg='#ffffff', fg='#0f4c81',
-                 font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=12, pady=(12, 6))
-        self.twin_obj_list = tk.Listbox(right, height=28, font=('Microsoft YaHei', 10), activestyle='dotbox')
+        tk.Label(left, text='模型对象 / 设备列表', bg='#ffffff', fg='#0f4c81',
+                 font=('Microsoft YaHei', 13, 'bold')).pack(anchor='w', padx=12, pady=(12, 6))
+        self.twin_obj_list = tk.Listbox(left, height=28, font=('Microsoft YaHei', 10), activestyle='dotbox')
         self.twin_obj_list.pack(fill='both', expand=True, padx=12, pady=(0, 12))
         self.twin_obj_list.bind('<<ListboxSelect>>', lambda e: self.select_twin_from_list())
         self._twin_binding_refresh_station_combo()
-
-        if hasattr(self, 'twin_model_path'):
-            self.twin_binding_model_path.set(self.twin_model_path.get())
-
-    def _twin_binding_browse_model(self):
-        from tkinter import filedialog
-        path = filedialog.askopenfilename(filetypes=[('GLB/GLTF模型', '*.glb *.gltf'), ('所有文件', '*.*')])
-        if path:
-            self.twin_binding_model_path.set(path)
-
-    def _twin_binding_save_model(self):
-        sid = self._twin_binding_sid()
-        path = (self.twin_binding_model_path.get() or '').strip()
-        if not sid:
-            messagebox.showwarning('提示', '请先选择泵站')
-            return
-        name = os.path.basename(path) if path else ''
-        old = self.row('SELECT id FROM twin_model WHERE station_id=?', (sid,))
-        if old:
-            self.db.execute('UPDATE twin_model SET model_name=?,model_path=?,updated_at=? WHERE station_id=?',
-                            (name, path, now(), sid))
-        else:
-            self.db.execute(
-                'INSERT INTO twin_model(station_id,model_name,model_path,created_at,updated_at) VALUES(?,?,?,?,?)',
-                (sid, name, path, now(), now()))
-        if path and os.path.exists(path):
-            self._prepare_twin_web_model(path)
-            try:
-                binding = self._write_binding_files(self._generate_twin_binding_dict(path), show_message=False)
-                self._show_binding_result(binding)
-            except Exception:
-                pass
-            messagebox.showinfo('保存成功', '模型绑定已保存，并生成 twin_binding.json。')
-        else:
-            messagebox.showinfo('保存成功', '三维模型绑定信息已保存。')
 
     def _twin_binding_refresh_station_combo(self):
         if not hasattr(self, 'twin_binding_station_combo'): return
@@ -4784,41 +4724,6 @@ model-viewer{{width:100%;height:calc(100vh - 54px);background:radial-gradient(ci
         except Exception:
             pass
 
-    def _twin_binding_sid(self):
-        try:
-            t = (self.twin_binding_station_var.get() or '').strip()
-            return int(t.split('|')[0].strip()) if t else self.sid()
-        except Exception:
-            return self.sid()
-
-    def _twin_binding_load_model_config(self):
-        sid = self._twin_binding_sid()
-        if not sid: return
-        row = self.row('SELECT model_path FROM twin_model WHERE station_id=?', (sid,))
-        if row:
-            self.twin_binding_model_path.set(row['model_path'] or '')
-
-    def _twin_binding_scan_objects(self):
-        path = (self.twin_binding_model_path.get() or '').strip()
-        if not path or not os.path.exists(path):
-            messagebox.showwarning('提示', '请先导入 GLB/gltf 模型文件。')
-            return
-        try:
-            binding = self._write_binding_files(self._generate_twin_binding_dict(path), show_message=False)
-            self._show_binding_result(binding)
-            messagebox.showinfo('扫描完成', '已扫描模型对象，并生成绑定表。\n绑定数：%s\n标注锚点：%s' % (
-                binding['summary']['bindings'], binding['summary']['anchors']))
-        except Exception as e:
-            messagebox.showwarning('扫描失败', str(e))
-
-    def _twin_binding_generate(self):
-        try:
-            path = (self.twin_binding_model_path.get() or '').strip()
-            binding = self._write_binding_files(self._generate_twin_binding_dict(path) if path else None,
-                                                show_message=True)
-            self._show_binding_result(binding)
-        except Exception as e:
-            messagebox.showwarning('生成失败', str(e))
 
 # ===================== V5.7.8 三维孪生：内嵌动态 GLB 查看器 + 实时数据绑定 =====================
 def _v578_twin_viewer_url(self):
@@ -6158,6 +6063,7 @@ def _v5713_write_binding_files(self, binding=None, show_message=True):
 
 
 def _v5713_model_status_check(self):
+    print("_v5713_model_status_check")
     path = (self.twin_model_path.get() or '').strip()
     lines = []
     ok = False
@@ -6247,53 +6153,6 @@ def _v5713_clear_twin_model(self):
     messagebox.showinfo('已清除', '当前泵站模型绑定已清除。')
 
 
-def _v5713_build_twin_page(self):
-    f = self.pages['三维孪生']
-    top = tk.Frame(f, bg='#e7f1fb')
-    top.pack(fill='x', padx=8, pady=6)
-    ttk.Label(top, text='孪生泵站').pack(side='left', padx=(4, 4))
-    self.twin_station_var = tk.StringVar()
-    self.twin_station_combo = ttk.Combobox(top, textvariable=self.twin_station_var, state='readonly', width=22)
-    self.twin_station_combo.pack(side='left', padx=4)
-    self.twin_station_combo.bind('<<ComboboxSelected>>', lambda e: self.switch_twin_station())
-    ttk.Label(top, text='模型文件').pack(side='left', padx=(10, 4))
-    self.twin_model_path = tk.StringVar()
-    ttk.Entry(top, textvariable=self.twin_model_path, width=34).pack(side='left', padx=4, fill='x', expand=True)
-    ttk.Button(top, text='导入模型', command=self.browse_twin_model).pack(side='left', padx=2)
-    ttk.Button(top, text='保存绑定', command=self.save_twin_model).pack(side='left', padx=2)
-    ttk.Button(top, text='扫描模型对象', command=self.scan_twin_model_objects).pack(side='left', padx=2)
-    ttk.Button(top, text='生成绑定表', command=self.generate_twin_binding).pack(side='left', padx=2)
-    ttk.Button(top, text='加载内嵌查看器', command=lambda: self.load_twin_in_page(force=True)).pack(side='left', padx=2)
-    ttk.Button(top, text='外部GLB查看器', command=self.open_twin_model_viewer).pack(side='left', padx=2)
-    ttk.Button(top, text='模型状态检查', command=self.model_status_check).pack(side='left', padx=2)
-    ttk.Button(top, text='打开模型目录', command=self.open_twin_model_dir).pack(side='left', padx=2)
-    ttk.Button(top, text='清除模型', command=self.clear_twin_model).pack(side='left', padx=2)
-
-    body = tk.Frame(f, bg='#edf4fb')
-    body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
-    left = tk.Frame(body, bg='#ffffff', bd=1, relief='solid')
-    left.pack(side='left', fill='both', expand=True, padx=(0, 8))
-    title = tk.Frame(left, bg='#0f4c81', height=34)
-    title.pack(fill='x')
-    title.pack_propagate(False)
-    tk.Label(title, text='多泵站数字孪生：GLB查看 / 对象扫描 / 变量绑定', bg='#0f4c81', fg='white',
-             font=('Microsoft YaHei', 12, 'bold')).pack(side='left', padx=10)
-    self.twin_hint = tk.Label(title, text='V5.7.13：模型写入安全目录，避免旧版本路径/权限/重名冲突', bg='#0f4c81',
-                              fg='#d7ecff', font=('Microsoft YaHei', 9))
-    self.twin_hint.pack(side='right', padx=10)
-    self.twin_view_frame = tk.Frame(left, bg='#07101f')
-    self.twin_view_frame.pack(fill='both', expand=True)
-    self.twin_embedded_widget = None
-    self.twin_loaded_url = ''
-    self.twin_embed_status = '未加载'
-    try:
-        if hasattr(self, 'twin_info'):
-            self.twin_info.insert('end',
-                                  'V5.7.14_TwinBindFix 已启用：GLB 模型将保存到安全目录，不再依赖旧版本 twin_viewer 路径。\n')
-    except Exception as e:
-        self._log_twin_error('构建V5.7.13三维页面增强按钮失败', e)
-
-
 # 应用 V5.7.13 覆盖。放在文件最后，确保覆盖 V5.7.10/5.7.11/5.7.12 的旧函数。
 App._twin_runtime_root = _v5713_runtime_root
 App._twin_viewer_dir = _v5713_viewer_dir
@@ -6320,7 +6179,6 @@ App._write_binding_files = _v5713_write_binding_files
 App.model_status_check = _v5713_model_status_check
 App.open_twin_model_dir = _v5713_open_twin_model_dir
 App.clear_twin_model = _v5713_clear_twin_model
-App.build_twin_page = _v5713_build_twin_page
 
 # ===================== V5.7.14: GLB 绑定显示修正 =====================
 # 解决：模型能扫描到 P1/P2/PIPE_A/LT01 等对象，但动态查看器显示不联动的问题。
@@ -6557,6 +6415,7 @@ def _v5714_load_twin_in_page(self, force=False):
 
 
 def _v5714_model_status_check(self):
+    print("_v5714_model_status_check")
     path = (self.twin_model_path.get() or '').strip()
     lines = []
     ok = False
