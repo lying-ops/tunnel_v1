@@ -140,27 +140,28 @@ class App(tk.Tk):
             '水泵管理': '🔵 水泵管理', '母管管理': '🟩 母管管理', '仪表管理': '📟 仪表管理',
             '模型示意': '🤖 模型示意', '手动控制': '🕹 手动控制',
             '参数配置': '⚙ 参数配置', '通讯设置': '🌐 通讯设置', '变量/点位管理': '🔢 变量点位',
-            '视频监控': '🎥 视频监控', '三维孪生': '🌐 三维孪生', '报表导出': '📄 报表导出', '日志': '📋 日志'
+            '视频监控':'🎥 视频监控', '三维孪生':'🌐 三维孪生', '数据绑定':'🔗 数据绑定', '报表导出':'📄 报表导出', '日志':'📋 日志'
         }
         for name in ['首页总览', '泵站监控', '泵站管理', '水泵管理', '母管管理', '仪表管理', '模型示意', '手动控制',
-                     '参数配置', '通讯设置', '变量/点位管理', '视频监控', '三维孪生', '报表导出', '日志']:
-            frame = ttk.Frame(self.nb);
-            self.nb.add(frame, text=tab_icons.get(name, name));
+                     '参数配置', '通讯设置', '变量/点位管理', '视频监控', '三维孪生', '数据绑定', '报表导出', '日志']:
+            frame = ttk.Frame(self.nb)
+            self.nb.add(frame, text=tab_icons.get(name, name))
             self.pages[name] = frame
-        self.build_dashboard();
-        self.build_monitor();
-        self.build_station_page();
-        self.build_pump_page();
-        self.build_pipe_page();
-        self.build_instrument_page();
-        self.build_model_page();
-        self.build_manual_page();
-        self.build_config_page();
-        self.build_comm_page();
-        self.build_point_page();
-        self.build_video_page();
-        self.build_twin_page();
-        self.build_report_page();
+        self.build_dashboard()
+        self.build_monitor()
+        self.build_station_page()
+        self.build_pump_page()
+        self.build_pipe_page()
+        self.build_instrument_page()
+        self.build_model_page()
+        self.build_manual_page()
+        self.build_config_page()
+        self.build_comm_page()
+        self.build_point_page()
+        self.build_video_page()
+        self.build_twin_page()
+        self.build_twin_binding_page()
+        self.build_report_page()
         self.build_log_page()
         self._update_datetime_label()
 
@@ -336,28 +337,32 @@ class App(tk.Tk):
         st = self.get_station()
         self.station_lbl.config(text='当前泵站：' + (st['station_name'] if st else '-'))
         if not st:
-            self.refresh_station_list();
-            self.clear_current_station_views();
-            self.refresh_config_params();
-            self.refresh_log();
-            self.refresh_realtime();
-            self.refresh_model_station_choices();
+            self.refresh_station_list()
+            self.clear_current_station_views()
+            self.refresh_config_params()
+            self.refresh_log()
+            self.refresh_realtime()
+            self.refresh_model_station_choices()
+            self.refresh_twin_station_combo()
+            self._twin_binding_refresh_station_combo()
             return
-        self.refresh_station_list();
-        self.refresh_pump_list();
-        self.refresh_pipe_list();
-        self.refresh_inst_list();
-        self.refresh_point_list();
-        self.refresh_device_list();
-        self.refresh_camera_list();
-        self.refresh_params();
-        self.refresh_config_params();
-        self.refresh_log();
-        self.refresh_realtime();
-        self.refresh_manual_lists();
-        self.refresh_model_station_choices();
-        self.refresh_video_station_choices();
+        self.refresh_station_list()
+        self.refresh_pump_list()
+        self.refresh_pipe_list()
+        self.refresh_inst_list()
+        self.refresh_point_list()
+        self.refresh_device_list()
+        self.refresh_camera_list()
+        self.refresh_params()
+        self.refresh_config_params()
+        self.refresh_log()
+        self.refresh_realtime()
+        self.refresh_manual_lists()
+        self.refresh_model_station_choices()
+        self.refresh_video_station_choices()
         self.draw_model()
+        self.refresh_twin_station_combo()
+        self._twin_binding_refresh_station_combo()
 
     # Dashboard
     def build_dashboard(self):
@@ -4675,66 +4680,149 @@ model-viewer{{width:100%;height:calc(100vh - 54px);background:radial-gradient(ci
         elif '仪表' in tab_text:
             self.refresh_inst_list()
 
+    def build_twin_binding_page(self):
+        f = self.pages['数据绑定']
+        top = tk.Frame(f, bg='#e7f1fb')
+        top.pack(fill='x', padx=8, pady=6)
+        ttk.Label(top, text='孪生泵站').pack(side='left', padx=(4, 4))
+        self.twin_binding_station_var = tk.StringVar()
+        self.twin_binding_station_combo = ttk.Combobox(top, textvariable=self.twin_binding_station_var,
+                                                       state='readonly', width=28)
+        self.twin_binding_station_combo.pack(side='left', padx=4)
+        self.twin_binding_station_combo.bind('<<ComboboxSelected>>', lambda e: self._twin_binding_switch_station())
+        ttk.Label(top, text='模型文件').pack(side='left', padx=(14, 4))
+        self.twin_binding_model_path = tk.StringVar()
+        ttk.Entry(top, textvariable=self.twin_binding_model_path, width=44).pack(side='left', padx=4, fill='x',
+                                                                                 expand=True)
+        ttk.Button(top, text='导入模型', command=self._twin_binding_browse_model).pack(side='left', padx=3)
+        ttk.Button(top, text='保存绑定', command=self._twin_binding_save_model).pack(side='left', padx=3)
+        ttk.Button(top, text='扫描模型对象', command=self._twin_binding_scan_objects).pack(side='left', padx=3)
+        ttk.Button(top, text='生成绑定表', command=self._twin_binding_generate).pack(side='left', padx=3)
+        ttk.Button(top, text='模型状态检查', command=self.model_status_check).pack(side='left', padx=2)
+        ttk.Button(top, text='打开模型目录', command=self.open_twin_model_dir).pack(side='left', padx=2)
+        ttk.Button(top, text='清除模型', command=self.clear_twin_model).pack(side='left', padx=2)
+
+        body = tk.Frame(f, bg='#edf4fb')
+        body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        left = tk.Frame(body, bg='#ffffff', bd=1, relief='solid')
+        left.pack(side='left', fill='both', expand=True, padx=(0, 8))
+        right = tk.Frame(body, bg='#ffffff', bd=1, relief='solid', width=330)
+        right.pack(side='right', fill='y')
+        right.pack_propagate(False)
+
+        tk.Label(left, text='扫描绑定 / 设备参数', bg='#ffffff', fg='#0f4c81',
+                 font=('Microsoft YaHei', 13, 'bold')).pack(anchor='w', padx=12, pady=(12, 6))
+        self.twin_info = tk.Text(left, height=18, bg='#f8fbff', fg='#1f2933', font=('Consolas', 10), wrap='word',
+                                 relief='solid', bd=1)
+        self.twin_info.pack(fill='both', expand=True, padx=12, pady=6)
+
+        tk.Label(right, text='模型对象 / 设备列表', bg='#ffffff', fg='#0f4c81',
+                 font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=12, pady=(12, 6))
+        self.twin_obj_list = tk.Listbox(right, height=28, font=('Microsoft YaHei', 10), activestyle='dotbox')
+        self.twin_obj_list.pack(fill='both', expand=True, padx=12, pady=(0, 12))
+        self.twin_obj_list.bind('<<ListboxSelect>>', lambda e: self.select_twin_from_list())
+        self._twin_binding_refresh_station_combo()
+
+        if hasattr(self, 'twin_model_path'):
+            self.twin_binding_model_path.set(self.twin_model_path.get())
+
+    def _twin_binding_browse_model(self):
+        from tkinter import filedialog
+        path = filedialog.askopenfilename(filetypes=[('GLB/GLTF模型', '*.glb *.gltf'), ('所有文件', '*.*')])
+        if path:
+            self.twin_binding_model_path.set(path)
+
+    def _twin_binding_save_model(self):
+        sid = self._twin_binding_sid()
+        path = (self.twin_binding_model_path.get() or '').strip()
+        if not sid:
+            messagebox.showwarning('提示', '请先选择泵站')
+            return
+        name = os.path.basename(path) if path else ''
+        old = self.row('SELECT id FROM twin_model WHERE station_id=?', (sid,))
+        if old:
+            self.db.execute('UPDATE twin_model SET model_name=?,model_path=?,updated_at=? WHERE station_id=?',
+                            (name, path, now(), sid))
+        else:
+            self.db.execute(
+                'INSERT INTO twin_model(station_id,model_name,model_path,created_at,updated_at) VALUES(?,?,?,?,?)',
+                (sid, name, path, now(), now()))
+        if path and os.path.exists(path):
+            self._prepare_twin_web_model(path)
+            try:
+                binding = self._write_binding_files(self._generate_twin_binding_dict(path), show_message=False)
+                self._show_binding_result(binding)
+            except Exception:
+                pass
+            messagebox.showinfo('保存成功', '模型绑定已保存，并生成 twin_binding.json。')
+        else:
+            messagebox.showinfo('保存成功', '三维模型绑定信息已保存。')
+
+    def _twin_binding_refresh_station_combo(self):
+        if not hasattr(self, 'twin_binding_station_combo'): return
+        vals = []
+        current = ''
+        for st in self.rows('SELECT id,station_code,station_name FROM pump_station ORDER BY id'):
+            txt = f"{st['id']} | {st['station_code']} | {st['station_name']}"
+            vals.append(txt)
+            if st['id'] == self.sid(): current = txt
+        self.twin_binding_station_combo['values'] = vals
+        if current:
+            self.twin_binding_station_var.set(current)
+        elif vals:
+            self.twin_binding_station_var.set(vals[0])
+
+    def _twin_binding_switch_station(self):
+        try:
+            t = (self.twin_binding_station_var.get() or '').strip()
+            sid = int(t.split('|')[0].strip()) if t else self.sid()
+            if sid:
+                self.current_station_id = sid
+                self.db.set_current_station(sid)
+                self.refresh_station_label()
+            self._twin_binding_load_model_config()
+        except Exception:
+            pass
+
+    def _twin_binding_sid(self):
+        try:
+            t = (self.twin_binding_station_var.get() or '').strip()
+            return int(t.split('|')[0].strip()) if t else self.sid()
+        except Exception:
+            return self.sid()
+
+    def _twin_binding_load_model_config(self):
+        sid = self._twin_binding_sid()
+        if not sid: return
+        row = self.row('SELECT model_path FROM twin_model WHERE station_id=?', (sid,))
+        if row:
+            self.twin_binding_model_path.set(row['model_path'] or '')
+
+    def _twin_binding_scan_objects(self):
+        path = (self.twin_binding_model_path.get() or '').strip()
+        if not path or not os.path.exists(path):
+            messagebox.showwarning('提示', '请先导入 GLB/gltf 模型文件。')
+            return
+        try:
+            binding = self._write_binding_files(self._generate_twin_binding_dict(path), show_message=False)
+            self._show_binding_result(binding)
+            messagebox.showinfo('扫描完成', '已扫描模型对象，并生成绑定表。\n绑定数：%s\n标注锚点：%s' % (
+                binding['summary']['bindings'], binding['summary']['anchors']))
+        except Exception as e:
+            messagebox.showwarning('扫描失败', str(e))
+
+    def _twin_binding_generate(self):
+        try:
+            path = (self.twin_binding_model_path.get() or '').strip()
+            binding = self._write_binding_files(self._generate_twin_binding_dict(path) if path else None,
+                                                show_message=True)
+            self._show_binding_result(binding)
+        except Exception as e:
+            messagebox.showwarning('生成失败', str(e))
 
 # ===================== V5.7.8 三维孪生：内嵌动态 GLB 查看器 + 实时数据绑定 =====================
 def _v578_twin_viewer_url(self):
     return f'http://127.0.0.1:{self.twin_http_port}/twin_viewer.html'
-
-
-def _v578_build_twin_page(self):
-    f = self.pages['三维孪生']
-    top = tk.Frame(f, bg='#e7f1fb')
-    top.pack(fill='x', padx=8, pady=6)
-    ttk.Label(top, text='孪生泵站').pack(side='left', padx=(4, 4))
-    self.twin_station_var = tk.StringVar()
-    self.twin_station_combo = ttk.Combobox(top, textvariable=self.twin_station_var, state='readonly', width=28)
-    self.twin_station_combo.pack(side='left', padx=4)
-    self.twin_station_combo.bind('<<ComboboxSelected>>', lambda e: self.switch_twin_station())
-    ttk.Label(top, text='模型文件').pack(side='left', padx=(14, 4))
-    self.twin_model_path = tk.StringVar()
-    ttk.Entry(top, textvariable=self.twin_model_path, width=44).pack(side='left', padx=4, fill='x', expand=True)
-    ttk.Button(top, text='导入模型', command=self.browse_twin_model).pack(side='left', padx=3)
-    ttk.Button(top, text='保存绑定', command=self.save_twin_model).pack(side='left', padx=3)
-    ttk.Button(top, text='加载内嵌动态查看器', command=lambda: self.load_twin_in_page(force=True)).pack(side='left',
-                                                                                                        padx=3)
-    ttk.Button(top, text='外部GLB查看器', command=self.open_twin_model_viewer).pack(side='left', padx=3)
-    ttk.Button(top, text='刷新数据绑定', command=self.refresh_twin_scene).pack(side='left', padx=3)
-
-    body = tk.Frame(f, bg='#edf4fb')
-    body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
-    left = tk.Frame(body, bg='#ffffff', bd=1, relief='solid')
-    left.pack(side='left', fill='both', expand=True, padx=(0, 8))
-    right = tk.Frame(body, bg='#ffffff', bd=1, relief='solid', width=330)
-    right.pack(side='right', fill='y')
-    right.pack_propagate(False)
-
-    title = tk.Frame(left, bg='#0f4c81', height=34)
-    title.pack(fill='x')
-    title.pack_propagate(False)
-    tk.Label(title, text='内嵌动态 GLB 查看器 / 数据驱动孪生', bg='#0f4c81', fg='white',
-             font=('Microsoft YaHei', 12, 'bold')).pack(side='left', padx=10)
-    self.twin_hint = tk.Label(title, text='支持旋转 / 缩放 / 平移；模型对象按 P1、PIPE_A、LT01 等编号绑定实时数据',
-                              bg='#0f4c81', fg='#d7ecff', font=('Microsoft YaHei', 9))
-    self.twin_hint.pack(side='right', padx=10)
-
-    self.twin_view_frame = tk.Frame(left, bg='#07101f')
-    self.twin_view_frame.pack(fill='both', expand=True)
-    self.twin_embedded_widget = None
-    self.twin_loaded_url = ''
-    self.twin_embed_status = '未加载'
-
-    tk.Label(right, text='设备状态参数', bg='#ffffff', fg='#0f4c81', font=('Microsoft YaHei', 13, 'bold')).pack(
-        anchor='w', padx=12, pady=(12, 6))
-    self.twin_info = tk.Text(right, height=16, bg='#f8fbff', fg='#1f2933', font=('Consolas', 10), wrap='word',
-                             relief='solid', bd=1)
-    self.twin_info.pack(fill='both', expand=False, padx=12, pady=6)
-    tk.Label(right, text='设备对象列表', bg='#ffffff', fg='#0f4c81', font=('Microsoft YaHei', 11, 'bold')).pack(
-        anchor='w', padx=12, pady=(10, 4))
-    self.twin_obj_list = tk.Listbox(right, height=14, font=('Microsoft YaHei', 10), activestyle='dotbox')
-    self.twin_obj_list.pack(fill='both', expand=True, padx=12, pady=(0, 12))
-    self.twin_obj_list.bind('<<ListboxSelect>>', lambda e: self.select_twin_from_list())
-    self.refresh_twin_station_combo()
-
 
 def _v578_status_from_pump(self, p):
     try:
@@ -4925,8 +5013,6 @@ def _v578_refresh_twin_scene(self):
     except Exception:
         pass
 
-
-App.build_twin_page = _v578_build_twin_page
 App._twin_viewer_url = _v578_twin_viewer_url
 App._write_twin_state_json = _v578_write_twin_state_json
 App._prepare_twin_web_model = _v578_prepare_twin_web_model
@@ -5441,63 +5527,11 @@ def _v5711_generate_twin_binding(self):
         messagebox.showwarning('生成失败', str(e))
 
 
-def _v5711_build_twin_page(self):
-    f = self.pages['三维孪生']
-    top = tk.Frame(f, bg='#e7f1fb')
-    top.pack(fill='x', padx=8, pady=6)
-    ttk.Label(top, text='孪生泵站').pack(side='left', padx=(4, 4))
-    self.twin_station_var = tk.StringVar()
-    self.twin_station_combo = ttk.Combobox(top, textvariable=self.twin_station_var, state='readonly', width=22)
-    self.twin_station_combo.pack(side='left', padx=4)
-    self.twin_station_combo.bind('<<ComboboxSelected>>', lambda e: self.switch_twin_station())
-    ttk.Label(top, text='模型文件').pack(side='left', padx=(10, 4))
-    self.twin_model_path = tk.StringVar()
-    ttk.Entry(top, textvariable=self.twin_model_path, width=34).pack(side='left', padx=4, fill='x', expand=True)
-    ttk.Button(top, text='导入模型', command=self.browse_twin_model).pack(side='left', padx=2)
-    ttk.Button(top, text='保存绑定', command=self.save_twin_model).pack(side='left', padx=2)
-    ttk.Button(top, text='扫描模型对象', command=self.scan_twin_model_objects).pack(side='left', padx=2)
-    ttk.Button(top, text='生成绑定表', command=self.generate_twin_binding).pack(side='left', padx=2)
-    ttk.Button(top, text='加载内嵌查看器', command=lambda: self.load_twin_in_page(force=True)).pack(side='left', padx=2)
-    ttk.Button(top, text='外部GLB查看器', command=self.open_twin_model_viewer).pack(side='left', padx=2)
-
-    body = tk.Frame(f, bg='#edf4fb')
-    body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
-    left = tk.Frame(body, bg='#ffffff', bd=1, relief='solid')
-    left.pack(side='left', fill='both', expand=True, padx=(0, 8))
-    right = tk.Frame(body, bg='#ffffff', bd=1, relief='solid', width=390)
-    right.pack(side='right', fill='y')
-    right.pack_propagate(False)
-    title = tk.Frame(left, bg='#0f4c81', height=34)
-    title.pack(fill='x')
-    title.pack_propagate(False)
-    tk.Label(title, text='多泵站数字孪生：GLB查看 / 对象扫描 / 变量绑定', bg='#0f4c81', fg='white',
-             font=('Microsoft YaHei', 12, 'bold')).pack(side='left', padx=10)
-    self.twin_hint = tk.Label(title, text='P1 / PIPE_A / LT01 / ANNO_P1 等命名可自动绑定实时数据', bg='#0f4c81',
-                              fg='#d7ecff', font=('Microsoft YaHei', 9))
-    self.twin_hint.pack(side='right', padx=10)
-    self.twin_view_frame = tk.Frame(left, bg='#07101f')
-    self.twin_view_frame.pack(fill='both', expand=True)
-    self.twin_embedded_widget = None;
-    self.twin_loaded_url = '';
-    self.twin_embed_status = '未加载'
-    tk.Label(right, text='扫描绑定 / 设备参数', bg='#ffffff', fg='#0f4c81', font=('Microsoft YaHei', 13, 'bold')).pack(
-        anchor='w', padx=12, pady=(12, 6))
-    self.twin_info = tk.Text(right, height=18, bg='#f8fbff', fg='#1f2933', font=('Consolas', 10), wrap='word',
-                             relief='solid', bd=1)
-    self.twin_info.pack(fill='both', expand=False, padx=12, pady=6)
-    tk.Label(right, text='模型对象 / 设备列表', bg='#ffffff', fg='#0f4c81', font=('Microsoft YaHei', 11, 'bold')).pack(
-        anchor='w', padx=12, pady=(8, 4))
-    self.twin_obj_list = tk.Listbox(right, height=16, font=('Microsoft YaHei', 10), activestyle='dotbox')
-    self.twin_obj_list.pack(fill='both', expand=True, padx=12, pady=(0, 12))
-    self.twin_obj_list.bind('<<ListboxSelect>>', lambda e: self.select_twin_from_list())
-    self.refresh_twin_station_combo()
-
-
 def _v5711_save_twin_model(self):
-    sid = self.twin_sid();
+    sid = self.twin_sid()
     path = (self.twin_model_path.get() or '').strip()
     if not sid:
-        messagebox.showwarning('提示', '请先选择泵站');
+        messagebox.showwarning('提示', '请先选择泵站')
         return
     name = os.path.basename(path) if path else ''
     old = self.row('SELECT id FROM twin_model WHERE station_id=?', (sid,))
@@ -5562,7 +5596,6 @@ App._write_binding_files = _v5711_write_binding_files
 App._show_binding_result = _v5711_show_binding_result
 App.scan_twin_model_objects = _v5711_scan_twin_model_objects
 App.generate_twin_binding = _v5711_generate_twin_binding
-App.build_twin_page = _v5711_build_twin_page
 App.save_twin_model = _v5711_save_twin_model
 App.select_twin_from_list = _v5711_select_twin_from_list
 App.open_twin_model_viewer = _v5711_open_twin_model_viewer
@@ -5627,7 +5660,6 @@ App.build_video_page = _v5712_build_video_page
 # 新策略：模型、查看器、状态文件统一写入可写运行目录：优先 BASE_DIR/data；失败则 LOCALAPPDATA/TunnelPumpControl。
 
 _V5713_VERSION = 'V5.7.14_TwinBindFix'
-_V5713_OLD_BUILD_TWIN_PAGE = App.build_twin_page
 
 _V5713_OFFLINE_HTML_TEMPLATE = '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>离线GLB三维孪生</title><style>\nhtml,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b16;color:#d7ecff;font-family:"Microsoft YaHei",Arial}canvas{position:fixed;inset:0;width:100%;height:100%;display:block;background:radial-gradient(circle,#12365a 0%,#07101f 55%,#020814 100%)}#hud{position:absolute;left:12px;right:12px;top:10px;height:48px;display:flex;align-items:center;justify-content:space-between;background:rgba(8,22,38,.72);border:1px solid rgba(68,188,255,.35);border-radius:8px;padding:0 12px;z-index:5}.title{font-weight:bold;color:#fff;font-size:16px}.sub{font-size:12px;color:#8fd3ff}button{background:#0f6fb2;color:#fff;border:1px solid #69c9ff;border-radius:6px;padding:6px 12px;margin-left:6px}#panel{position:absolute;right:12px;top:76px;width:320px;max-height:calc(100vh - 96px);overflow:auto;background:rgba(7,18,32,.82);border:1px solid rgba(68,188,255,.35);border-radius:10px;padding:12px;z-index:5}#panel h3{margin:0 0 8px;color:#fff}.item{border-bottom:1px solid rgba(143,211,255,.16);padding:5px 0;font-size:12px;line-height:1.55}#legend{position:absolute;left:12px;bottom:12px;background:rgba(7,18,32,.82);border:1px solid rgba(68,188,255,.35);border-radius:8px;padding:8px 12px;font-size:12px;z-index:5}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin:0 4px 0 12px}.green{background:#18d06b}.blue{background:#2fa8ff}.yellow{background:#f6c343}.red{background:#ff4d4f}.gray{background:#7b8794}#msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);max-width:760px;color:#8fd3ff;font-size:14px;line-height:1.8;z-index:7;background:rgba(8,22,38,.92);padding:18px 24px;border:1px solid rgba(68,188,255,.45);border-radius:10px;white-space:pre-line}.err{color:#ff7875}.warn{color:#f6c343}\n</style></head><body><canvas id="gl"></canvas><div id="hud"><div><div class="title">隧道泵站自动控制系统 V5.7.14_TwinBindFix · 离线路径修复三维孪生</div><div class="sub" id="stationLine">加载中...</div></div><div><button onclick="resetCamera()">复位视角</button><button onclick="toggleRotate()">自动旋转</button><button onclick="location.reload()">重新加载</button></div></div><div id="panel"><h3>实时状态</h3><div id="stateBox">等待数据...</div></div><div id="legend"><span class="dot green"></span>运行 <span class="dot blue"></span>备用 <span class="dot yellow"></span>检修 <span class="dot red"></span>故障 <span class="dot gray"></span>停止/未绑定</div><div id="msg">正在加载 GLB 模型...</div><script>\nconst MODEL_URL=\'__MODEL__\';let gl,prog,meshes=[],state={},auto=false;const c=document.getElementById(\'gl\'),msg=document.getElementById(\'msg\');let cam={yaw:.75,pitch:.8,dist:8,pan:[0,0]},B={min:[-1,-1,-1],max:[1,1,1],cen:[0,0,0],r:1};let drag=false,last=[0,0],btn=0;\nfunction show(x){msg.style.display=\'block\';msg.innerHTML=x}function hide(){msg.style.display=\'none\'}function N(s){return String(s||\'\').toUpperCase().replace(/[^A-Z0-9_]/g,\'\')}function num(v,d=2){v=Number(v||0);return isFinite(v)?v.toFixed(d):\'0.00\'}function col(st){return {running:[.06,.82,.38],standby:[.18,.66,1],fault:[1,.2,.2],maintenance:[.96,.76,.26],stopped:[.48,.53,.58],disabled:[.22,.25,.29],normal:[.06,.82,.38]}[st]||[.52,.62,.72]}\nfunction M(){return [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}function MM(a,b){let o=Array(16);for(let r=0;r<4;r++)for(let c=0;c<4;c++)o[c*4+r]=a[r]*b[c*4]+a[4+r]*b[c*4+1]+a[8+r]*b[c*4+2]+a[12+r]*b[c*4+3];return o}function T(v){let m=M();m[12]=v[0];m[13]=v[1];m[14]=v[2];return m}function S(v){let m=M();m[0]=v[0];m[5]=v[1];m[10]=v[2];return m}function Q(q){let x=q[0],y=q[1],z=q[2],w=q[3],x2=x+x,y2=y+y,z2=z+z,xx=x*x2,xy=x*y2,xz=x*z2,yy=y*y2,yz=y*z2,zz=z*z2,wx=w*x2,wy=w*y2,wz=w*z2;return [1-(yy+zz),xy+wz,xz-wy,0,xy-wz,1-(xx+zz),yz+wx,0,xz+wy,yz-wx,1-(xx+yy),0,0,0,0,1]}function NM(n){if(n.matrix)return n.matrix;let m=M();if(n.translation)m=MM(m,T(n.translation));if(n.rotation)m=MM(m,Q(n.rotation));if(n.scale)m=MM(m,S(n.scale));return m}function tp(m,p){let x=p[0],y=p[1],z=p[2];return [m[0]*x+m[4]*y+m[8]*z+m[12],m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14]]}\nfunction sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]]}function add(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]]}function cr(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]}function dt(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]}function nr(a){let l=Math.sqrt(dt(a,a))||1;return[a[0]/l,a[1]/l,a[2]/l]}function P(f,asp,n,fa){let q=1/Math.tan(f/2),nf=1/(n-fa);return[q/asp,0,0,0,0,q,0,0,0,0,(fa+n)*nf,-1,0,0,2*fa*n*nf,0]}function LA(e,ce,u){let z=nr(sub(e,ce)),x=nr(cr(u,z)),y=cr(z,x);return[x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dt(x,e),-dt(y,e),-dt(z,e),1]}\nfunction sh(t,s){let h=gl.createShader(t);gl.shaderSource(h,s);gl.compileShader(h);if(!gl.getShaderParameter(h,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(h));return h}function init(){gl=c.getContext(\'webgl\',{antialias:true})||c.getContext(\'experimental-webgl\');if(!gl)throw Error(\'当前浏览器/WebView不支持WebGL\');gl.getExtension(\'OES_element_index_uint\');let vs=\'attribute vec3 p,n;uniform mat4 mvp,mo;varying vec3 vn;void main(){vn=mat3(mo)*n;gl_Position=mvp*vec4(p,1.0);}\';let fs=\'precision mediump float;uniform vec3 color;uniform float pulse;varying vec3 vn;void main(){float d=max(dot(normalize(vn),normalize(vec3(.4,.8,.5))),0.0);gl_FragColor=vec4(color*(.35+.65*d)+color*pulse*.35,1.0);}\';prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(prog));gl.useProgram(prog);gl.enable(gl.DEPTH_TEST)}\nfunction cs(t){return{SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[t]||1}function cb(t){return{5120:1,5121:1,5122:2,5123:2,5125:4,5126:4}[t]||4}function rc(d,o,t){if(t==5120)return d.getInt8(o);if(t==5121)return d.getUint8(o);if(t==5122)return d.getInt16(o,true);if(t==5123)return d.getUint16(o,true);if(t==5125)return d.getUint32(o,true);if(t==5126)return d.getFloat32(o,true);return 0}async function load(){let ab=await(await fetch(MODEL_URL)).arrayBuffer(),dv=new DataView(ab);if(dv.getUint32(0,true)!=0x46546c67)throw Error(\'当前离线查看器优先支持 .glb；如为 .gltf，请导出为未压缩 .glb 后再导入。\');let off=12,j=null,bin=null;while(off<ab.byteLength){let l=dv.getUint32(off,true),ty=dv.getUint32(off+4,true);off+=8;let ch=ab.slice(off,off+l);off+=l;if(ty==0x4e4f534a)j=JSON.parse(new TextDecoder().decode(ch));else if(ty==0x004e4942)bin=ch}return{j,b:[bin]}}\nfunction acc(g,i){let a=g.j.accessors[i],v=g.j.bufferViews[a.bufferView],buf=g.b[v.buffer||0],d=new DataView(buf),n=cs(a.type),b=cb(a.componentType),st=v.byteStride||n*b,off=(v.byteOffset||0)+(a.byteOffset||0),o=[];for(let x=0;x<a.count;x++){let r=[];for(let k=0;k<n;k++)r.push(rc(d,off+x*st+k*b,a.componentType));o.push(r)}return o}function fl(a){let o=[];for(const r of a)o.push(...r);return new Float32Array(o)}function ia(a){let o=[];for(const r of a)o.push(r[0]);return new Uint32Array(o)}function normals(p,ind){let n=Array(p.length).fill(0).map(()=>[0,0,0]),ids=ind?Array.from(ind):p.map((_,i)=>i);for(let i=0;i<ids.length;i+=3){let a=ids[i],b=ids[i+1],c=ids[i+2];if(a==null||b==null||c==null)continue;let nn=nr(cr(sub(p[b],p[a]),sub(p[c],p[a])));for(const x of[a,b,c])n[x]=add(n[x],nn)}return n.map(nr)}function matColor(g,i){try{let f=g.j.materials[i].pbrMetallicRoughness.baseColorFactor;return[f[0],f[1],f[2]]}catch(e){return[.45,.62,.82]}}\nfunction build(g){let scenes=g.j.scenes,sceneIndex=g.j.scene||0,sc=(scenes&&scenes[sceneIndex])?scenes[sceneIndex]:(scenes&&scenes[0]),nodes=(sc&&sc.nodes)?sc.nodes:[];let mi=[1e9,1e9,1e9],ma=[-1e9,-1e9,-1e9];function upd(p){for(let i=0;i<3;i++){mi[i]=Math.min(mi[i],p[i]);ma[i]=Math.max(ma[i],p[i])}}function rec(ni,pm){let nd=g.j.nodes[ni],wm=MM(pm,NM(nd));if(nd.mesh!=null){let me=g.j.meshes[nd.mesh];for(const pr of me.primitives||[]){if(pr.mode!=null&&pr.mode!==4)continue;if(pr.extensions&&pr.extensions.KHR_draco_mesh_compression)throw Error(\'模型使用Draco压缩，请重新导出未压缩GLB\');if(!pr.attributes||pr.attributes.POSITION==null)continue;let p=acc(g,pr.attributes.POSITION),ind=pr.indices!=null?ia(acc(g,pr.indices)):null,n=pr.attributes.NORMAL!=null?acc(g,pr.attributes.NORMAL):normals(p,ind);p.map(x=>tp(wm,x)).forEach(upd);let it={name:nd.name||me.name||\'\',meshName:me.name||\'\',model:wm,color:matColor(g,pr.material),count:ind?ind.length:p.length,indexed:!!ind};it.v=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,it.v);gl.bufferData(gl.ARRAY_BUFFER,fl(p),gl.STATIC_DRAW);it.n=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,it.n);gl.bufferData(gl.ARRAY_BUFFER,fl(n),gl.STATIC_DRAW);if(ind){it.i=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,it.i);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,ind,gl.STATIC_DRAW)}meshes.push(it)}}for(const x of nd.children||[])rec(x,wm)}for(const n of nodes)rec(n,M());if(!meshes.length)throw Error(\'模型内没有普通网格或为空模型\');B.min=mi;B.max=ma;B.cen=[(mi[0]+ma[0])/2,(mi[1]+ma[1])/2,(mi[2]+ma[2])/2];B.r=Math.max(...sub(ma,mi).map(Math.abs))/2||1;resetCamera()}\nfunction match(name){let k=N(name);for(const[c,v]of Object.entries(state.pumps||{}))if(k==N(c)||k.includes(N(c)))return v.status;for(const[c,v]of Object.entries(state.pipes||{}))if(k==N(c)||k.includes(N(c)))return v.status;for(const[c,v]of Object.entries(state.meters||{}))if(k==N(c)||k.includes(N(c)))return v.status;return null}\nfunction resize(){let r=window.devicePixelRatio||1,w=c.clientWidth*r,h=c.clientHeight*r;if(c.width!=w||c.height!=h){c.width=w;c.height=h}}function draw(){requestAnimationFrame(draw);resize();if(auto)cam.yaw+=.006;gl.viewport(0,0,c.width,c.height);gl.clearColor(.02,.04,.08,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);let r=cam.dist,cp=Math.cos(cam.pitch),eye=[B.cen[0]+r*cp*Math.sin(cam.yaw)+cam.pan[0],B.cen[1]+r*Math.sin(cam.pitch)+cam.pan[1],B.cen[2]+r*cp*Math.cos(cam.yaw)],view=LA(eye,[B.cen[0]+cam.pan[0],B.cen[1]+cam.pan[1],B.cen[2]],[0,1,0]),proj=P(Math.PI/4,c.width/c.height,Math.max(.01,B.r/1000),B.r*100+100);let ap=gl.getAttribLocation(prog,\'p\'),an=gl.getAttribLocation(prog,\'n\'),um=gl.getUniformLocation(prog,\'mvp\'),umo=gl.getUniformLocation(prog,\'mo\'),uc=gl.getUniformLocation(prog,\'color\'),up=gl.getUniformLocation(prog,\'pulse\'),t=Date.now()/400;for(const it of meshes){let st=match(it.name)||match(it.meshName),co=st?col(st):it.color,mvp=MM(proj,MM(view,it.model));gl.uniformMatrix4fv(um,false,new Float32Array(mvp));gl.uniformMatrix4fv(umo,false,new Float32Array(it.model));gl.uniform3fv(uc,new Float32Array(co));gl.uniform1f(up,st===\'fault\'?(Math.sin(t)+1)/2:0);gl.bindBuffer(gl.ARRAY_BUFFER,it.v);gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,it.n);gl.enableVertexAttribArray(an);gl.vertexAttribPointer(an,3,gl.FLOAT,false,0,0);if(it.indexed){gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,it.i);gl.drawElements(gl.TRIANGLES,it.count,gl.UNSIGNED_INT,0)}else gl.drawArrays(gl.TRIANGLES,0,it.count)}}\nasync function loadState(){try{state=await(await fetch(\'twin_state.json?ts=\'+Date.now(),{cache:\'no-store\'})).json();applyState()}catch(e){}}function applyState(){document.getElementById(\'stationLine\').textContent=`${state.station||\'\'} ${state.stationName||\'\'} | ${state.controlModeText||state.controlMode||\'\'} | ${state.controlState||\'\'} | 液位 ${num(state.level,2)} m | 速率 ${num(state.levelRate,3)} m/min | ${state.updatedAt||\'\'}`;let pumps=Object.values(state.pumps||{}).slice(0,12).map(p=>`<div class="item"><b>${p.code}</b> ${p.name||\'\'}<br>状态：${p.statusText||p.status||\'-\'}\u3000频率：${num(p.freq,1)}Hz\u3000电流：${num(p.current,1)}A</div>`).join(\'\'),pipes=Object.values(state.pipes||{}).slice(0,6).map(p=>`<div class="item"><b>${p.code}</b> ${p.name||\'\'}<br>流量：${num(p.flow,1)} m³/h\u3000压力：${num(p.pressure,2)}MPa</div>`).join(\'\');document.getElementById(\'stateBox\').innerHTML=`<div class="item">控制状态：${state.controlState||\'-\'}<br>事件状态：${state.eventState||\'-\'}<br>当前动作：${state.currentAction||\'-\'}</div>${pumps}${pipes}`}\nfunction resetCamera(){cam.dist=Math.max(2,B.r*3.2);cam.yaw=.75;cam.pitch=.9;cam.pan=[0,0]}window.resetCamera=resetCamera;window.toggleRotate=()=>auto=!auto;c.oncontextmenu=e=>e.preventDefault();c.onmousedown=e=>{drag=true;last=[e.clientX,e.clientY];btn=e.button};window.onmouseup=()=>drag=false;window.onmousemove=e=>{if(!drag)return;let dx=e.clientX-last[0],dy=e.clientY-last[1];last=[e.clientX,e.clientY];if(btn==2||btn==1){let s=B.r/350;cam.pan[0]+=dx*s;cam.pan[1]-=dy*s}else{cam.yaw+=dx*.008;cam.pitch=Math.max(-1.45,Math.min(1.45,cam.pitch+dy*.006))}};c.onwheel=e=>{e.preventDefault();cam.dist*=e.deltaY>0?1.12:.89;cam.dist=Math.max(B.r*.25,cam.dist)};\n(async()=>{try{init();let g=await load();build(g);hide();await loadState();setInterval(loadState,1000);draw()}catch(e){console.error(e);show(\'<span class="err">三维模型加载失败：</span> \'+(e.message||e)+\'\\n\\n处理建议：\\n1. 请优先导入 .glb 文件；\\n2. 如果模型使用 Draco/压缩网格，请重新导出未压缩 GLB；\\n3. 用 Windows 系统3D查看器确认模型本身是否正常；\\n4. 本查看器不依赖外网，若仍失败，多半是模型格式问题。\')}})();\n</script></body></html>'
 
@@ -6216,16 +6248,45 @@ def _v5713_clear_twin_model(self):
 
 
 def _v5713_build_twin_page(self):
-    _V5713_OLD_BUILD_TWIN_PAGE(self)
+    f = self.pages['三维孪生']
+    top = tk.Frame(f, bg='#e7f1fb')
+    top.pack(fill='x', padx=8, pady=6)
+    ttk.Label(top, text='孪生泵站').pack(side='left', padx=(4, 4))
+    self.twin_station_var = tk.StringVar()
+    self.twin_station_combo = ttk.Combobox(top, textvariable=self.twin_station_var, state='readonly', width=22)
+    self.twin_station_combo.pack(side='left', padx=4)
+    self.twin_station_combo.bind('<<ComboboxSelected>>', lambda e: self.switch_twin_station())
+    ttk.Label(top, text='模型文件').pack(side='left', padx=(10, 4))
+    self.twin_model_path = tk.StringVar()
+    ttk.Entry(top, textvariable=self.twin_model_path, width=34).pack(side='left', padx=4, fill='x', expand=True)
+    ttk.Button(top, text='导入模型', command=self.browse_twin_model).pack(side='left', padx=2)
+    ttk.Button(top, text='保存绑定', command=self.save_twin_model).pack(side='left', padx=2)
+    ttk.Button(top, text='扫描模型对象', command=self.scan_twin_model_objects).pack(side='left', padx=2)
+    ttk.Button(top, text='生成绑定表', command=self.generate_twin_binding).pack(side='left', padx=2)
+    ttk.Button(top, text='加载内嵌查看器', command=lambda: self.load_twin_in_page(force=True)).pack(side='left', padx=2)
+    ttk.Button(top, text='外部GLB查看器', command=self.open_twin_model_viewer).pack(side='left', padx=2)
+    ttk.Button(top, text='模型状态检查', command=self.model_status_check).pack(side='left', padx=2)
+    ttk.Button(top, text='打开模型目录', command=self.open_twin_model_dir).pack(side='left', padx=2)
+    ttk.Button(top, text='清除模型', command=self.clear_twin_model).pack(side='left', padx=2)
+
+    body = tk.Frame(f, bg='#edf4fb')
+    body.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+    left = tk.Frame(body, bg='#ffffff', bd=1, relief='solid')
+    left.pack(side='left', fill='both', expand=True, padx=(0, 8))
+    title = tk.Frame(left, bg='#0f4c81', height=34)
+    title.pack(fill='x')
+    title.pack_propagate(False)
+    tk.Label(title, text='多泵站数字孪生：GLB查看 / 对象扫描 / 变量绑定', bg='#0f4c81', fg='white',
+             font=('Microsoft YaHei', 12, 'bold')).pack(side='left', padx=10)
+    self.twin_hint = tk.Label(title, text='V5.7.13：模型写入安全目录，避免旧版本路径/权限/重名冲突', bg='#0f4c81',
+                              fg='#d7ecff', font=('Microsoft YaHei', 9))
+    self.twin_hint.pack(side='right', padx=10)
+    self.twin_view_frame = tk.Frame(left, bg='#07101f')
+    self.twin_view_frame.pack(fill='both', expand=True)
+    self.twin_embedded_widget = None
+    self.twin_loaded_url = ''
+    self.twin_embed_status = '未加载'
     try:
-        f = self.pages['三维孪生']
-        top = f.winfo_children()[0] if f.winfo_children() else None
-        if top:
-            ttk.Button(top, text='模型状态检查', command=self.model_status_check).pack(side='left', padx=2)
-            ttk.Button(top, text='打开模型目录', command=self.open_twin_model_dir).pack(side='left', padx=2)
-            ttk.Button(top, text='清除模型', command=self.clear_twin_model).pack(side='left', padx=2)
-        if hasattr(self, 'twin_hint'):
-            self.twin_hint.config(text='V5.7.13：模型写入安全目录，避免旧版本路径/权限/重名冲突')
         if hasattr(self, 'twin_info'):
             self.twin_info.insert('end',
                                   'V5.7.14_TwinBindFix 已启用：GLB 模型将保存到安全目录，不再依赖旧版本 twin_viewer 路径。\n')
@@ -6435,6 +6496,20 @@ def _v5714_load_twin_in_page(self, force=False):
                     self._cef_loop_running = False
 
             self.after(10, cef_loop)
+
+        def _twin_resize(event=None):
+            try:
+                if hasattr(self, 'browser') and self.browser:
+
+                    w = self.twin_view_frame.winfo_width()
+                    h = self.twin_view_frame.winfo_height()
+                    print(f"_twin_resize>>>  wid={w}, hei={h}")
+                    if w > 10 and h > 10:
+                        self.browser.SetBounds(0, 0, w, h)
+            except Exception:
+                pass
+
+        self.twin_view_frame.bind('<Configure>', _twin_resize)
         self.twin_embedded_widget = self.browser
         self.twin_loaded_url = url
         self.twin_embed_status = 'cefpython3'
