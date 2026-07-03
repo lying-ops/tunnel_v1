@@ -22,6 +22,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b16;col
 #back-btn:hover{background:#0b5f9c}
 #selected-title{font-size:16px;font-weight:bold;color:#fff}
 #gl-canvas{flex:1;background:#06101e}
+#render-note{position:absolute;left:305px;top:66px;z-index:5;padding:6px 10px;border:1px solid rgba(68,188,255,.30);border-radius:8px;background:rgba(6,16,30,.72);color:#8fd3ff;font-size:12px;pointer-events:none}
 #right{width:360px;background:#081526;border-left:1px solid rgba(68,188,255,.25);display:flex;flex-direction:column}
 #detail-header{height:52px;background:#0a1f38;border-bottom:1px solid rgba(68,188,255,.25);display:flex;align-items:center;padding:0 16px}
 #detail-header .icon{font-size:20px;margin-right:8px}
@@ -61,6 +62,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b16;col
       <button id="back-btn" onclick="goBack()">← 返回主视图</button>
       <div id="selected-title">设备详情</div>
     </div>
+    <div id="render-note">当前画布仅绘制选中设备，左侧微缩图显示全站位置</div>
     <canvas id="gl-canvas"></canvas>
   </div>
   <div id="right">
@@ -77,7 +79,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b16;col
 const MODEL_URL='/models/ST02/ST02.glb';
 let gl,prog,meshes=[],state={},selectedCode='';
 let B={min:[-1,-1,-1],max:[1,1,1],cen:[0,0,0],r:1};
-let cam={yaw:0.75,pitch:0.8,dist:8,pan:[0,0]};
+let cam={yaw:0.75,pitch:0.8,dist:8,pan:[0,0,0]};
 let drag=false,last=[0,0],btn=0;
 let anchors={},bindBoxes={};
 const c=document.getElementById('gl-canvas'),msg=document.getElementById('msg');
@@ -117,7 +119,8 @@ function deviceCode(s){
   return ''
 }
 
-function M(){return [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}function MM(a,b){let o=Array(16);for(let r=0;r<4;r++)for(let cc=0;cc<4;cc++)o[cc*4+r]=a[r]*b[cc*4]+a[4+r]*b[cc*4+1]+a[8+r]*b[cc*4+2]+a[12+r]*b[cc*4+3];return o}
+function M(){return [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}
+function MM(a,b){let o=Array(16);for(let r=0;r<4;r++)for(let cc=0;cc<4;cc++)o[cc*4+r]=a[r]*b[cc*4]+a[4+r]*b[cc*4+1]+a[8+r]*b[cc*4+2]+a[12+r]*b[cc*4+3];return o}
 function T(v){let m=M();m[12]=v[0];m[13]=v[1];m[14]=v[2];return m}
 function S(v){let m=M();m[0]=v[0];m[5]=v[1];m[10]=v[2];return m}
 function Q(q){let x=q[0],y=q[1],z=q[2],w=q[3],x2=x+x,y2=y+y,z2=z+z,xx=x*x2,xy=x*y2,xz=x*z2,yy=y*y2,yz=y*z2,zz=z*z2,wx=w*x2,wy=w*y2,wz=w*z2;return [1-(yy+zz),xy+wz,xz-wy,0,xy-wz,1-(xx+zz),yz+wx,0,xz+wy,yz-wx,1-(xx+yy),0,0,0,0,1]}
@@ -146,6 +149,8 @@ function init(){
   if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(prog));
   gl.useProgram(prog);
   gl.enable(gl.DEPTH_TEST);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
   gl.disable(gl.CULL_FACE);
   gl.enable(gl.BLEND);
   gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA)
@@ -248,6 +253,7 @@ function buildDetail(code){
   let st=normStatus(d.status||d.statusText);
   document.getElementById('detail-icon').textContent=statusIcon(st);
   document.getElementById('detail-name').textContent=d.name||code;
+  document.getElementById('selected-title').textContent='设备详情：'+(d.name||code);
   let badge=document.getElementById('detail-badge');
   badge.textContent=d.statusText||d.status||'-';
   badge.className='badge badge-'+st;
@@ -368,6 +374,17 @@ function updateMinimap(){
   }
 }
 
+
+function meshBelongsToSelected(it){
+  if(!selectedCode)return true;
+  return N(it.bind)===selectedCode || N(it.name)===selectedCode || N(it.meshName)===selectedCode || N(it.name).includes(selectedCode) || N(it.meshName).includes(selectedCode);
+}
+
+function hasSelectedMesh(){
+  if(!selectedCode)return false;
+  return meshes.some(meshBelongsToSelected);
+}
+
 function selectDevice(code){
   selectedCode=N(code);
   buildDetail(selectedCode);
@@ -387,7 +404,11 @@ function centerCamera(){
 }
 
 function goBack(){
-  window.location.href='twin_viewer.html';
+  try{sessionStorage.setItem('twin_detail_back_request',String(Date.now()))}catch(e){}
+  let embedded=new URLSearchParams(window.location.search).get('embedded');
+  if(embedded==='cef'){window.location.href='twinapp://main';return;}
+  if(window.history.length>1){window.history.back();return;}
+  window.location.replace('twin_viewer.html?restore=1');
 }
 
 function resize(){
@@ -407,12 +428,14 @@ function draw(){
   let ap=gl.getAttribLocation(prog,'p'),an=gl.getAttribLocation(prog,'n'),auv=gl.getAttribLocation(prog,'uv'),um=gl.getUniformLocation(prog,'mvp'),umo=gl.getUniformLocation(prog,'mo'),uc=gl.getUniformLocation(prog,'color'),usc=gl.getUniformLocation(prog,'statusColor'),usa=gl.getUniformLocation(prog,'statusAlpha'),up=gl.getUniformLocation(prog,'pulse'),uum=gl.getUniformLocation(prog,'useMap'),ue=gl.getUniformLocation(prog,'exposure'),utex=gl.getUniformLocation(prog,'tex'),uenv=gl.getUniformLocation(prog,'envTex'),uuse=gl.getUniformLocation(prog,'useEnv'),umet=gl.getUniformLocation(prog,'metallic'),urgh=gl.getUniformLocation(prog,'roughness'),uem=gl.getUniformLocation(prog,'emissive'),ual=gl.getUniformLocation(prog,'alpha'),uop=gl.getUniformLocation(prog,'outlinePass'),uoc=gl.getUniformLocation(prog,'outlineColor'),uot=gl.getUniformLocation(prog,'outlineThickness');
   gl.uniform1i(utex,0);
   gl.uniform1i(uenv,1);
+  const selectedMeshExists=hasSelectedMesh();
   for(const it of meshes){
-    let isSelected=selectedCode&&N(it.bind)===selectedCode;
+    let isSelected=selectedCode&&meshBelongsToSelected(it);
+    // 详情页中心画布只绘制当前选择的设备；全站位置由左侧微缩图负责展示。
+    if(selectedCode&&selectedMeshExists&&!isSelected)continue;
     let st=match(it.name,it.bind),scol=st?col(st):[0,0,0],salpha=0;
     if(st){salpha=(st==='fault'?0.022:(st==='running'?0.0:(st==='maintenance'?0.010:0.002)))}
     let alphaVal=(it.alpha==null?1:it.alpha);
-    if(!isSelected&&selectedCode){alphaVal=0.18}
     let pulse=(isSelected?0.10:(st==='fault'?(Math.sin(Date.now()/360)+1)/2*0.10:0)),mvp=MM(proj,MM(view,it.model));
     gl.uniformMatrix4fv(um,false,new Float32Array(mvp));
     gl.uniformMatrix4fv(umo,false,new Float32Array(it.model));
@@ -439,7 +462,7 @@ function draw(){
     issue();
     if(isSelected){
       gl.uniform1f(uop,1);
-      gl.uniform1f(uot,B.r*0.012);
+      gl.uniform1f(uot,Math.max(B.r*0.004,cam.dist*0.006));
       gl.uniform3fv(uoc,new Float32Array([1,1,1]));
       gl.depthFunc(gl.LEQUAL);
       issue();
@@ -470,7 +493,7 @@ function getUrlParam(name){
     init();
     let g=await load();
     build(g);
-    selectedCode=getUrlParam('code')||'';
+    selectedCode=N(getUrlParam('code')||getUrlParam('device')||'');
     if(selectedCode){centerCamera();buildDetail(selectedCode)}
     buildDeviceList();
     updateMinimap();
