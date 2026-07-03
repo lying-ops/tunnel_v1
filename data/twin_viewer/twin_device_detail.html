@@ -1,0 +1,494 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>设备详情 - 隧道泵站三维孪生</title><style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050b16;color:#d7ecff;font-family:"Microsoft YaHei",Arial}
+#layout{display:flex;width:100%;height:100%}
+#left{width:280px;background:#081526;border-right:1px solid rgba(68,188,255,.25);display:flex;flex-direction:column}
+#minimap-box{padding:12px}
+#minimap-box h4{margin:0 0 8px;color:#fff;font-size:13px}
+#minimap{width:100%;height:180px;background:#06101e;border:1px solid rgba(68,188,255,.20);border-radius:8px}
+#device-list{flex:1;overflow:auto;padding:0 12px}
+.device-item{padding:8px 10px;margin-bottom:4px;background:rgba(12,32,55,.55);border:1px solid rgba(68,188,255,.15);border-radius:6px;cursor:pointer;font-size:12px}
+.device-item:hover{background:rgba(47,168,255,.12);border-color:rgba(68,188,255,.35)}
+.device-item.sel{background:rgba(47,168,255,.22);border-color:rgba(68,188,255,.55)}
+.device-item .code{font-weight:bold;color:#fff}
+.device-item .status{float:right;font-size:11px;padding:2px 6px;border-radius:4px}
+.status-running{background:#0b5f36;color:#21e56d}
+.status-standby{background:#07365c;color:#1e9bff}
+.status-fault{background:#4a0f18;color:#ff4d4f}
+.status-maintenance{background:#4a3208;color:#f6c343}
+.status-stopped{background:#242d38;color:#9ca3af}
+#center{flex:1;display:flex;flex-direction:column}
+#center-header{height:52px;background:#081526;border-bottom:1px solid rgba(68,188,255,.25);display:flex;align-items:center;padding:0 16px}
+#back-btn{background:#0f6fb2;color:#fff;border:1px solid #69c9ff;border-radius:6px;padding:6px 12px;cursor:pointer;margin-right:12px;font-size:12px}
+#back-btn:hover{background:#0b5f9c}
+#selected-title{font-size:16px;font-weight:bold;color:#fff}
+#gl-canvas{flex:1;background:#06101e}
+#right{width:360px;background:#081526;border-left:1px solid rgba(68,188,255,.25);display:flex;flex-direction:column}
+#detail-header{height:52px;background:#0a1f38;border-bottom:1px solid rgba(68,188,255,.25);display:flex;align-items:center;padding:0 16px}
+#detail-header .icon{font-size:20px;margin-right:8px}
+#detail-header .name{font-size:14px;font-weight:bold;color:#fff}
+#detail-header .badge{margin-left:auto;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:bold}
+.badge-running{background:#0b5f36;color:#21e56d}
+.badge-standby{background:#07365c;color:#1e9bff}
+.badge-fault{background:#4a0f18;color:#ff4d4f}
+.badge-maintenance{background:#4a3208;color:#f6c343}
+.badge-stopped{background:#242d38;color:#9ca3af}
+#detail-body{flex:1;overflow:auto;padding:16px}
+.info-group{margin-bottom:16px}
+.info-group h5{margin:0 0 8px;color:#8fd3ff;font-size:12px;border-bottom:1px solid rgba(68,188,255,.12);padding-bottom:4px}
+.info-row{display:flex;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px solid rgba(68,188,255,.08)}
+.info-row .label{color:#8fd3ff}
+.info-row .value{color:#fff;font-weight:500}
+.info-row .value.num{font-family:Consolas}
+.info-row .value.unit{color:#8fd3ff;font-weight:normal;margin-left:4px}
+.param-bar{height:6px;background:#0d2137;border-radius:3px;margin-top:4px;overflow:hidden}
+.param-fill{height:100%;border-radius:3px;transition:width 0.3s}
+.param-fill.good{background:#18d06b}
+.param-fill.warn{background:#f6c343}
+.param-fill.danger{background:#ff4d4f}
+#msg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#8fd3ff;font-size:14px;z-index:10;background:rgba(8,22,38,.92);padding:18px 24px;border:1px solid rgba(68,188,255,.45);border-radius:10px}
+.err{color:#ff7875}
+</style></head><body>
+<div id="layout">
+  <div id="left">
+    <div id="minimap-box">
+      <h4>泵站微缩图</h4>
+      <canvas id="minimap"></canvas>
+    </div>
+    <div id="device-list"></div>
+  </div>
+  <div id="center">
+    <div id="center-header">
+      <button id="back-btn" onclick="goBack()">← 返回主视图</button>
+      <div id="selected-title">设备详情</div>
+    </div>
+    <canvas id="gl-canvas"></canvas>
+  </div>
+  <div id="right">
+    <div id="detail-header">
+      <span class="icon" id="detail-icon">●</span>
+      <span class="name" id="detail-name">-</span>
+      <span class="badge" id="detail-badge">-</span>
+    </div>
+    <div id="detail-body"></div>
+  </div>
+</div>
+<div id="msg">正在加载...</div>
+<script>
+const MODEL_URL='/models/ST02/ST02.glb';
+let gl,prog,meshes=[],state={},selectedCode='';
+let B={min:[-1,-1,-1],max:[1,1,1],cen:[0,0,0],r:1};
+let cam={yaw:0.75,pitch:0.8,dist:8,pan:[0,0]};
+let drag=false,last=[0,0],btn=0;
+let anchors={},bindBoxes={};
+const c=document.getElementById('gl-canvas'),msg=document.getElementById('msg');
+
+function show(x){msg.style.display='block';msg.innerHTML=x}
+function hide(){msg.style.display='none'}
+function N(s){return String(s||'').toUpperCase().replace(/[^A-Z0-9_]/g,'')}
+function num(v,d=2){v=Number(v||0);return isFinite(v)?v.toFixed(d):'0.00'}
+
+function normStatus(st){
+  let raw=String(st||'');
+  let x=raw.toUpperCase();
+  if(raw.includes('故障')||raw.includes('报警')||x.includes('FAULT')||x.includes('ALARM'))return 'fault';
+  if(raw.includes('检修')||raw.includes('维护')||x.includes('MAINT'))return 'maintenance';
+  if(raw.includes('备用')||raw.includes('待机')||x.includes('STANDBY')||x.includes('SPARE'))return 'standby';
+  if(raw.includes('运行')||x.includes('RUNNING')||x==='RUN'||x.includes('START'))return 'running';
+  if(raw.includes('屏蔽')||x.includes('BYPASS'))return 'bypassed';
+  if(raw.includes('停止')||raw.includes('停机')||raw.includes('未绑定')||x.includes('STOP')||x.includes('DISABLED'))return 'stopped';
+  if(x.includes('GOOD')||x.includes('NORMAL'))return 'normal';
+  return x?x.toLowerCase():''
+}
+
+function col(st){
+  st=normStatus(st);
+  return {running:[0.06,0.82,0.38],standby:[0.18,0.66,1],fault:[1,0.2,0.2],maintenance:[0.96,0.76,0.26],stopped:[0.55,0.58,0.62],disabled:[0.34,0.37,0.42],normal:[0.06,0.82,0.38],bypassed:[0.66,0.33,0.97],unknown:[0.52,0.62,0.72]}[st]||[0.52,0.62,0.72]
+}
+
+function statusIcon(st){
+  st=normStatus(st);
+  return {running:'●',standby:'◆',fault:'⚠',maintenance:'🔧',stopped:'○',disabled:'○',bypassed:'◆',normal:'●'}[st]||'○'
+}
+
+function deviceCode(s){
+  let n=N(s);
+  if(!n||n.startsWith('ANNO_'))return '';
+  if(/^P\d+$/.test(n)||/^PIPE_[A-Z0-9]+$/.test(n)||/^LT\d+$/.test(n)||/^FT\d+$/.test(n)||/^PT\d+$/.test(n)||/^CAM\d+$/.test(n)||/^TANK\d+$/.test(n)||/^JP\d+$/.test(n)||/^CAB\d+$/.test(n))return n;
+  return ''
+}
+
+function M(){return [1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]}function MM(a,b){let o=Array(16);for(let r=0;r<4;r++)for(let cc=0;cc<4;cc++)o[cc*4+r]=a[r]*b[cc*4]+a[4+r]*b[cc*4+1]+a[8+r]*b[cc*4+2]+a[12+r]*b[cc*4+3];return o}
+function T(v){let m=M();m[12]=v[0];m[13]=v[1];m[14]=v[2];return m}
+function S(v){let m=M();m[0]=v[0];m[5]=v[1];m[10]=v[2];return m}
+function Q(q){let x=q[0],y=q[1],z=q[2],w=q[3],x2=x+x,y2=y+y,z2=z+z,xx=x*x2,xy=x*y2,xz=x*z2,yy=y*y2,yz=y*z2,zz=z*z2,wx=w*x2,wy=w*y2,wz=w*z2;return [1-(yy+zz),xy+wz,xz-wy,0,xy-wz,1-(xx+zz),yz+wx,0,xz+wy,yz-wx,1-(xx+yy),0,0,0,0,1]}
+function NM(n){if(n.matrix)return n.matrix;let m=M();if(n.translation)m=MM(m,T(n.translation));if(n.rotation)m=MM(m,Q(n.rotation));if(n.scale)m=MM(m,S(n.scale));return m}
+function tp(m,p){let x=p[0],y=p[1],z=p[2];return [m[0]*x+m[4]*y+m[8]*z+m[12],m[1]*x+m[5]*y+m[9]*z+m[13],m[2]*x+m[6]*y+m[10]*z+m[14]]}
+function sub(a,b){return[a[0]-b[0],a[1]-b[1],a[2]-b[2]]}
+function add(a,b){return[a[0]+b[0],a[1]+b[1],a[2]+b[2]]}
+function cr(a,b){return[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]}
+function dt(a,b){return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]}
+function nr(a){let l=Math.sqrt(dt(a,a))||1;return[a[0]/l,a[1]/l,a[2]/l]}
+function P(f,asp,n,fa){let q=1/Math.tan(f/2),nf=1/(n-fa);return[q/asp,0,0,0,0,q,0,0,0,0,(fa+n)*nf,-1,0,0,2*fa*n*nf,0]}
+function LA(e,ce,u){let z=nr(sub(e,ce)),x=nr(cr(u,z)),y=cr(z,x);return[x[0],y[0],z[0],0,x[1],y[1],z[1],0,x[2],y[2],z[2],0,-dt(x,e),-dt(y,e),-dt(z,e),1]}
+function mv(m,p){let x=p[0],y=p[1],z=p[2],w=1;return [m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
+
+function sh(t,s){let h=gl.createShader(t);gl.shaderSource(h,s);gl.compileShader(h);if(!gl.getShaderParameter(h,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(h));return h}
+
+function init(){
+  gl=c.getContext('webgl',{antialias:true,alpha:false})||c.getContext('experimental-webgl',{antialias:true});
+  if(!gl)throw Error('当前浏览器/WebView不支持WebGL');
+  let vs='precision highp float;precision highp int;attribute vec3 p,n;attribute vec2 uv;uniform mat4 mvp,mo;uniform highp float outlinePass,outlineThickness;varying vec3 vn;varying vec3 vwp;varying vec2 vuv;void main(){vuv=uv;vec3 pp=p+n*outlineThickness*outlinePass;vec4 wp=mo*vec4(pp,1.0);vwp=wp.xyz;vn=normalize(mat3(mo)*n);gl_Position=mvp*vec4(pp,1.0);}';
+  let fs='precision mediump float;precision highp int;uniform highp vec3 color,statusColor,emissive,outlineColor;uniform highp float pulse,statusAlpha,useMap,exposure,metallic,roughness,alpha,useEnv,outlinePass,materialMode,brightness,contrast,shadowLift,basePlate,baseLift;uniform sampler2D tex,envTex;varying vec3 vn;varying vec3 vwp;varying vec2 vuv;vec3 aces(vec3 x){return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0);}void main(){vec3 n=normalize(vn);if(outlinePass>0.5){gl_FragColor=vec4(outlineColor,0.82);return;}vec3 base=color;if(useMap>0.5){vec3 texc=texture2D(tex,vuv).rgb;base*=pow(max(texc,0.0),vec3(2.2));}float r=clamp(roughness,0.03,1.0);float m=clamp(metallic,0.0,1.0);vec3 l1=normalize(vec3(0.45,0.88,0.38));vec3 l2=normalize(vec3(-0.55,0.35,-0.70));vec3 v=normalize(vec3(0.15,0.28,1.0));vec3 h=normalize(l1+v);float d1=max(dot(n,l1),0.0);float d2=max(dot(n,l2),0.0);float specPow=mix(18.0,240.0,1.0-r);float spec=pow(max(dot(n,h),0.0),specPow)*(1.0-r*0.72);vec3 f0=mix(vec3(0.04),base,m);vec3 sky=vec3(0.72,0.76,0.78)*(0.50+0.50*max(n.y,0.0));vec3 ground=vec3(0.38,0.39,0.39)*(0.72+0.28*max(-n.y,0.0));vec3 env=mix(ground,sky,clamp(n.y*0.5+0.5,0.0,1.0));float rim=pow(1.0-max(dot(n,v),0.0),2.2);vec3 diffuse=base*(1.0-m)*(0.32+0.72*d1+0.18*d2);vec3 lit=diffuse + f0*spec*(0.55+m*0.82) + env*(0.045+m*0.34+r*0.025) + vec3(0.025,0.030,0.035)*rim + emissive;lit=mix(lit,statusColor,statusAlpha);lit+=statusColor*pulse*0.055;float lum=dot(lit,vec3(0.299,0.587,0.114));if(basePlate>0.5){float low=1.0-smoothstep(0.06,0.34,lum);float grain=0.88+0.12*sin(vwp.x*17.0+vwp.z*11.0);lit+=vec3(baseLift*grain)*low;}lit+=vec3(shadowLift)*(1.0-smoothstep(0.06,0.38,lum));lit=(lit-vec3(0.5))*contrast+vec3(0.5);lit*=brightness;lit=aces(lit*exposure);lit=pow(max(lit,0.0),vec3(1.0/2.2));gl_FragColor=vec4(lit,alpha);}';
+  prog=gl.createProgram();
+  gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));
+  gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));
+  gl.linkProgram(prog);
+  if(!gl.getProgramParameter(prog,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+  gl.enable(gl.DEPTH_TEST);
+  gl.disable(gl.CULL_FACE);
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA)
+}
+
+function cs(t){return{SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[t]||1}
+function cb(t){return{5120:1,5121:1,5122:2,5123:2,5125:4,5126:4}[t]||4}
+function rc(d,o,t){if(t==5120)return d.getInt8(o);if(t==5121)return d.getUint8(o);if(t==5122)return d.getInt16(o,true);if(t==5123)return d.getUint16(o,true);if(t==5125)return d.getUint32(o,true);if(t==5126)return d.getFloat32(o,true);return 0}
+
+async function load(){
+  let ab=await(await fetch(MODEL_URL)).arrayBuffer(),dv=new DataView(ab);
+  if(dv.getUint32(0,true)!=0x46546c67)throw Error('不支持的模型格式');
+  let off=12,j=null,bin=null;
+  while(off<ab.byteLength){let l=dv.getUint32(off,true),ty=dv.getUint32(off+4,true);off+=8;let ch=ab.slice(off,off+l);off+=l;if(ty==0x4e4f534a)j=JSON.parse(new TextDecoder().decode(ch));else if(ty==0x004e4942)bin=ch}
+  return{j,b:[bin]}
+}
+
+function acc(g,i){let a=g.j.accessors[i],v=g.j.bufferViews[a.bufferView],buf=g.b[v.buffer||0],d=new DataView(buf),n=cs(a.type),b=cb(a.componentType),st=v.byteStride||n*b,off=(v.byteOffset||0)+(a.byteOffset||0),o=[];for(let x=0;x<a.count;x++){let r=[];for(let k=0;k<n;k++)r.push(rc(d,off+x*st+k*b,a.componentType));o.push(r)}return o}
+function fl(a){let o=[];for(const r of a)o.push(...r);return new Float32Array(o)}
+function ia(a){let o=[];for(const r of a)o.push(r[0]);return new Uint32Array(o)}
+function normals(p,ind){let n=Array(p.length).fill(0).map(()=>[0,0,0]),ids=ind?Array.from(ind):p.map((_,i)=>i);for(let i=0;i<ids.length;i+=3){let a=ids[i],b=ids[i+1],cc=ids[i+2];if(a==null||b==null||cc==null)continue;let nn=nr(cr(sub(p[b],p[a]),sub(p[cc],p[a])));for(const x of[a,b,cc])n[x]=add(n[x],nn)}return n.map(nr)}
+
+let texCache={};
+function solidTex(){if(texCache.__solid)return texCache.__solid;let tx=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,tx);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([255,255,255,255]));gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);texCache.__solid=tx;return tx}
+function textureFromImage(g,idx){if(idx==null)return null;if(texCache[idx])return texCache[idx];let imd=g.j.images&&g.j.images[idx];if(!imd||imd.bufferView==null)return null;let bv=g.j.bufferViews[imd.bufferView],buf=g.b[bv.buffer||0],blob=new Blob([buf.slice(bv.byteOffset||0,(bv.byteOffset||0)+(bv.byteLength||0))],{type:imd.mimeType||'image/png'}),url=URL.createObjectURL(blob),tx=solidTex();let img=new Image();img.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,tx);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.REPEAT);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.generateMipmap(gl.TEXTURE_2D);URL.revokeObjectURL(url)};img.src=url;texCache[idx]=tx;return tx}
+
+function matInfo(g,i){let m=(g.j.materials||[])[i]||{},p=m.pbrMetallicRoughness||{},f=p.baseColorFactor||[0.45,0.62,0.82,1],tex=null;if(p.baseColorTexture&&g.j.textures){let ti=g.j.textures[p.baseColorTexture.index];if(ti&&ti.source!=null)tex=textureFromImage(g,ti.source)}let em=m.emissiveFactor||[0,0,0];let mode=m.alphaMode||'OPAQUE';let al=(f[3]==null?1:f[3]);if(mode==='OPAQUE')al=1;return{color:[f[0],f[1],f[2]],texture:tex,metallic:(p.metallicFactor==null?0:p.metallicFactor),roughness:(p.roughnessFactor==null?0.5:p.roughnessFactor),emissive:[em[0]||0,em[1]||0,em[2]||0],alpha:al,alphaMode:mode,doubleSided:!!m.doubleSided}}
+
+function updBox(box,p){for(let i=0;i<3;i++){box.min[i]=Math.min(box.min[i],p[i]);box.max[i]=Math.max(box.max[i],p[i])}}
+function getBox(code){if(!bindBoxes[code])bindBoxes[code]={min:[1e9,1e9,1e9],max:[-1e9,-1e9,-1e9]};return bindBoxes[code]}
+
+function build(g){
+  let scenes=g.j.scenes,sceneIndex=g.j.scene||0;
+  let sc=(scenes&&scenes[sceneIndex])?scenes[sceneIndex]:(scenes&&scenes[0]);
+  let nodes=(sc&&sc.nodes)?sc.nodes:[];
+  let mi=[1e9,1e9,1e9],ma=[-1e9,-1e9,-1e9];
+  function upd(p){for(let i=0;i<3;i++){mi[i]=Math.min(mi[i],p[i]);ma[i]=Math.max(ma[i],p[i])}}
+  function rec(ni,pm,inherited){
+    let nd=g.j.nodes[ni],wm=MM(pm,NM(nd));
+    let nm=nd.name||'';
+    let dc=deviceCode(nm);
+    let bind=dc||inherited||'';
+    let nn=N(nm);
+    if(nn.startsWith('ANNO_')){let ac=nn.replace(/^ANNO_/,'');anchors[ac]=[wm[12],wm[13],wm[14]]}
+    if(nd.mesh!=null){
+      let me=g.j.meshes[nd.mesh];
+      for(const pr of me.primitives||[]){
+        if(pr.mode!=null&&pr.mode!==4)continue;
+        if(!pr.attributes||pr.attributes.POSITION==null)continue;
+        let p=acc(g,pr.attributes.POSITION),ind=pr.indices!=null?ia(acc(g,pr.indices)):null,n=pr.attributes.NORMAL!=null?acc(g,pr.attributes.NORMAL):normals(p,ind),uv=pr.attributes.TEXCOORD_0!=null?acc(g,pr.attributes.TEXCOORD_0):p.map(_=>[0,0]),mi=matInfo(g,pr.material);
+        let transformed=p.map(x=>tp(wm,x));
+        transformed.forEach(upd);
+        let bx={min:[1e9,1e9,1e9],max:[-1e9,-1e9,-1e9]};transformed.forEach(q=>updBox(bx,q));
+        if(bind)transformed.forEach(q=>updBox(getBox(bind),q));
+        let it={name:nm||me.name||'',meshName:me.name||'',bind:bind||deviceCode(me.name)||'',model:wm,color:mi.color,texture:mi.texture,metallic:mi.metallic,roughness:mi.roughness,emissive:mi.emissive,alpha:mi.alpha,alphaMode:mi.alphaMode,doubleSided:mi.doubleSided,box:bx,isBasePlate:false,count:ind?ind.length:p.length,indexed:!!ind};
+        it.v=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,it.v);gl.bufferData(gl.ARRAY_BUFFER,fl(p),gl.STATIC_DRAW);
+        it.n=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,it.n);gl.bufferData(gl.ARRAY_BUFFER,fl(n),gl.STATIC_DRAW);
+        it.u=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,it.u);gl.bufferData(gl.ARRAY_BUFFER,fl(uv),gl.STATIC_DRAW);
+        if(ind){it.i=gl.createBuffer();gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,it.i);gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,ind,gl.STATIC_DRAW)}
+        meshes.push(it)
+      }
+    }
+    for(const x of nd.children||[])rec(x,wm,bind)
+  }
+  for(const n of nodes)rec(n,M(),'');
+  if(!meshes.length)throw Error('模型内没有网格');
+  B.min=mi;B.max=ma;B.cen=[(mi[0]+ma[0])/2,(mi[1]+ma[1])/2,(mi[2]+ma[2])/2];B.r=Math.max(...sub(ma,mi).map(Math.abs))/2||1;
+  for(const it of meshes){
+    if(!it.visualKind&&it.box){
+      let sx=it.box.max[0]-it.box.min[0],sy=it.box.max[1]-it.box.min[1],sz=it.box.max[2]-it.box.min[2];
+      let dark=((it.color[0]||0)+(it.color[1]||0)+(it.color[2]||0))/3<0.26;
+      let nearBottom=it.box.min[1]<=B.min[1]+B.r*0.22;
+      let flat=sy<=B.r*0.20;
+      let large=(sx*sz>=B.r*B.r*0.48)||((sx>B.r*1.05&&sz>B.r*0.42)||(sz>B.r*1.05&&sx>B.r*0.42));
+      it.isBasePlate=!!(dark&&nearBottom&&flat&&large);
+    }
+  }
+  for(const [code,b] of Object.entries(bindBoxes)){if(!anchors[code])anchors[code]=[(b.min[0]+b.max[0])/2,b.max[1]+B.r*0.12,(b.min[2]+b.max[2])/2]}
+}
+
+function dataFor(code){let k=N(code);return (state.pumps&&state.pumps[k])||(state.pipes&&state.pipes[k])||(state.meters&&state.meters[k])||(state.cameras&&state.cameras[k])||(state.tanks&&state.tanks[k])||null}
+function statusFor(code){let d=dataFor(code);return d?normStatus(d.status||d.statusText):null}
+function match(name,bind){let k=N(bind||name);let st=statusFor(k);if(st)return st;let nk=N(name);for(const group of[state.pumps,state.pipes,state.meters,state.cameras,state.tanks])for(const c of Object.keys(group||{}))if(nk==N(c)||nk.includes(N(c)))return normStatus(group[c].status||group[c].statusText);return null}
+
+function getParamClass(value, min, max){
+  if(value===undefined||value===null)return '';
+  try{
+    value=Number(value);
+    if(min===undefined)min=0;
+    if(max===undefined)max=100;
+    let ratio=(value-min)/(max-min);
+    if(ratio<0.2||ratio>0.85)return 'danger';
+    if(ratio<0.35||ratio>0.75)return 'warn';
+    return 'good';
+  }catch(e){return ''}
+}
+
+function buildDetail(code){
+  let d=dataFor(code)||{};
+  let st=normStatus(d.status||d.statusText);
+  document.getElementById('detail-icon').textContent=statusIcon(st);
+  document.getElementById('detail-name').textContent=d.name||code;
+  let badge=document.getElementById('detail-badge');
+  badge.textContent=d.statusText||d.status||'-';
+  badge.className='badge badge-'+st;
+  let html='';
+  html+='<div class="info-group"><h5>基本信息</h5>';
+  html+=`<div class="info-row"><span class="label">设备代码</span><span class="value">${code}</span></div>`;
+  html+=`<div class="info-row"><span class="label">设备名称</span><span class="value">${d.name||'-'}</span></div>`;
+  html+=`<div class="info-row"><span class="label">设备类型</span><span class="value">${d.type||'-'}</span></div>`;
+  html+=`<div class="info-row"><span class="label">当前状态</span><span class="value" style="color:${col(st).map(c=>Math.round(c*255)).join(',')}">${d.statusText||d.status||'-'}</span></div>`;
+  html+=`<div class="info-row"><span class="label">安装位置</span><span class="value">${d.position||'-'}</span></div>`;
+  html+='</div>';
+  if(d.freq!==undefined){
+    html+='<div class="info-group"><h5>运行参数</h5>';
+    html+=`<div class="info-row"><span class="label">运行频率</span><span class="value num">${num(d.freq,1)}<span class="unit">Hz</span></span></div>`;
+    html+=`<div class="param-bar"><div class="param-fill ${getParamClass(d.freq,0,50)}" style="width:${Math.min(100,(d.freq||0)/50*100)}%"></div></div>`;
+    html+=`<div class="info-row"><span class="label">运行电流</span><span class="value num">${num(d.current,1)}<span class="unit">A</span></span></div>`;
+    html+=`<div class="param-bar"><div class="param-fill ${getParamClass(d.current,0,100)}" style="width:${Math.min(100,(d.current||0)/100*100)}%"></div></div>`;
+    html+=`<div class="info-row"><span class="label">运行电压</span><span class="value num">${num(d.voltage,1)}<span class="unit">V</span></span></div>`;
+    html+=`<div class="info-row"><span class="label">运行功率</span><span class="value num">${num(d.power,2)}<span class="unit">kW</span></span></div>`;
+    html+=`<div class="info-row"><span class="label">功率因数</span><span class="value num">${num(d.power_factor,2)}</span></div>`;
+    html+=`<div class="info-row"><span class="label">运行时长</span><span class="value">${formatSeconds(d.run_seconds_today)}</span></div>`;
+    html+='</div>';
+  }
+  if(d.flow!==undefined){
+    html+='<div class="info-group"><h5>管道参数</h5>';
+    html+=`<div class="info-row"><span class="label">瞬时流量</span><span class="value num">${num(d.flow,1)}<span class="unit">m³/h</span></span></div>`;
+    html+=`<div class="param-bar"><div class="param-fill ${getParamClass(d.flow,0,1000)}" style="width:${Math.min(100,(d.flow||0)/1000*100)}%"></div></div>`;
+    html+=`<div class="info-row"><span class="label">管道压力</span><span class="value num">${num(d.pressure,2)}<span class="unit">MPa</span></span></div>`;
+    html+=`<div class="param-bar"><div class="param-fill ${getParamClass(d.pressure,0,2)}" style="width:${Math.min(100,(d.pressure||0)/2*100)}%"></div></div>`;
+    html+=`<div class="info-row"><span class="label">管径规格</span><span class="value">${d.dn||'-'}</span></div>`;
+    html+=`<div class="info-row"><span class="label">累计流量</span><span class="value num">${num(d.total_flow,2)}<span class="unit">m³</span></span></div>`;
+    html+='</div>';
+  }
+  if(d.value!==undefined){
+    html+='<div class="info-group"><h5>测量参数</h5>';
+    html+=`<div class="info-row"><span class="label">测量数值</span><span class="value num">${num(d.value,2)}<span class="unit">${d.unit||''}</span></span></div>`;
+    html+=`<div class="param-bar"><div class="param-fill ${getParamClass(d.value)}" style="width:${Math.min(100,((d.value||0)-0)/10*100)}%"></div></div>`;
+    html+=`<div class="info-row"><span class="label">量程范围</span><span class="value">${d.range_min||0} ~ ${d.range_max||10} ${d.unit||''}</span></div>`;
+    html+=`<div class="info-row"><span class="label">精度等级</span><span class="value">${d.accuracy||'-'}</span></div>`;
+    html+='</div>';
+  }
+  if(d.camera_ip){
+    html+='<div class="info-group"><h5>摄像头参数</h5>';
+    html+=`<div class="info-row"><span class="label">IP地址</span><span class="value">${d.camera_ip||'-'}</span></div>`;
+    html+=`<div class="info-row"><span class="label">端口</span><span class="value">${d.camera_port||'-'}</span></div>`;
+    html+=`<div class="info-row"><span class="label">用户名</span><span class="value">${d.camera_user||'-'}</span></div>`;
+    html+=`<div class="info-row"><span class="label">分辨率</span><span class="value">${d.resolution||'-'}</span></div>`;
+    html+='</div>';
+  }
+  document.getElementById('detail-body').innerHTML=html;
+}
+
+function formatSeconds(sec){
+  try{
+    sec=Math.floor(Number(sec||0));
+    let h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;
+    if(h)return `${h}小时${m}分钟`;
+    if(m)return `${m}分钟${s}秒`;
+    return `${s}秒`;
+  }catch(e){return '-'}
+}
+
+function buildDeviceList(){
+  let codes=Object.keys(bindBoxes).filter(c=>c);
+  let html='';
+  for(const code of codes){
+    let d=dataFor(code)||{};
+    let st=normStatus(d.status||d.statusText);
+    let sel=selectedCode===code?' sel':'';
+    html+=`<div class="device-item${sel}" onclick="selectDevice('${code}')">`;
+    html+=`<span class="code">${code}</span> `;
+    html+=`<span class="status status-${st}">${d.statusText||d.status||'-'}</span>`;
+    html+='</div>';
+  }
+  document.getElementById('device-list').innerHTML=html;
+}
+
+function updateMinimap(){
+  let mm=document.getElementById('minimap');
+  let ctx=mm.getContext('2d');
+  let w=mm.width,h=mm.height;
+  ctx.fillStyle='#06101e';
+  ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='rgba(68,188,255,0.15)';
+  ctx.lineWidth=1;
+  for(let i=0;i<10;i++){ctx.beginPath();ctx.moveTo(i*w/10,0);ctx.lineTo(i*w/10,h);ctx.stroke()}
+  for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(0,i*h/6);ctx.lineTo(w,i*h/6);ctx.stroke()}
+  let bx=B.min,by=B.max,bz=B.max;
+  for(const [code,box] of Object.entries(bindBoxes)){
+    let cx=(box.min[0]+box.max[0])/2,cz=(box.min[2]+box.max[2])/2;
+    let sx=Math.max(0.001,box.max[0]-box.min[0]),sz=Math.max(0.001,box.max[2]-box.min[2]);
+    let px=(cx-bx[0])/(by[0]-bx[0])*w;
+    let py=(bz[2]-cz)/(bz[2]-bx[2])*h;
+    let r=Math.max(6,Math.min(16,Math.max(sx,sz)/(by[0]-bx[0])*w));
+    let d=dataFor(code)||{};
+    let st=normStatus(d.status||d.statusText);
+    let c=col(st);
+    ctx.fillStyle=`rgba(${Math.round(c[0]*255)},${Math.round(c[1]*255)},${Math.round(c[2]*255)},0.7)`;
+    ctx.beginPath();
+    ctx.arc(px,py,r,0,Math.PI*2);
+    ctx.fill();
+    if(selectedCode===code){
+      ctx.strokeStyle='rgba(255,255,255,0.9)';
+      ctx.lineWidth=2;
+      ctx.beginPath();
+      ctx.arc(px,py,r+4,0,Math.PI*2);
+      ctx.stroke();
+      ctx.strokeStyle='rgba(255,255,255,0.4)';
+      ctx.lineWidth=4;
+      ctx.beginPath();
+      ctx.arc(px,py,r+8,0,Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.fillStyle='#fff';
+    ctx.font='9px Arial';
+    ctx.textAlign='center';
+    ctx.fillText(code,px,py+3);
+  }
+}
+
+function selectDevice(code){
+  selectedCode=N(code);
+  buildDetail(selectedCode);
+  buildDeviceList();
+  centerCamera();
+}
+
+function centerCamera(){
+  if(!selectedCode)return;
+  let box=bindBoxes[selectedCode];
+  if(!box)return;
+  let cx=(box.min[0]+box.max[0])/2,cy=(box.min[1]+box.max[1])/2,cz=(box.min[2]+box.max[2])/2;
+  let sx=box.max[0]-box.min[0],sy=box.max[1]-box.min[1],sz=box.max[2]-box.min[2];
+  let maxDim=Math.max(sx,sy,sz);
+  cam.dist=maxDim*2.5;
+  cam.pan=[cx-B.cen[0],cy-B.cen[1],cz-B.cen[2]];
+}
+
+function goBack(){
+  window.location.href='twin_viewer.html';
+}
+
+function resize(){
+  let r=window.devicePixelRatio||1,w=c.clientWidth*r,h=c.clientHeight*r;
+  if(c.width!=w||c.height!=h){c.width=w;c.height=h}
+  let mm=document.getElementById('minimap');
+  if(mm){let r2=window.devicePixelRatio||1;mm.width=mm.clientWidth*r2;mm.height=mm.clientHeight*r2;updateMinimap()}
+}
+
+function draw(){
+  requestAnimationFrame(draw);
+  resize();
+  gl.viewport(0,0,c.width,c.height);
+  gl.clearColor(0.03,0.06,0.10,1);
+  gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  let r=cam.dist,cp=Math.cos(cam.pitch),eye=[B.cen[0]+cam.pan[0]+r*cp*Math.sin(cam.yaw),B.cen[1]+cam.pan[1]+r*Math.sin(cam.pitch),B.cen[2]+cam.pan[2]+r*cp*Math.cos(cam.yaw)],view=LA(eye,[B.cen[0]+cam.pan[0],B.cen[1]+cam.pan[1],B.cen[2]+cam.pan[2]],[0,1,0]),proj=P(Math.PI/4,c.width/c.height,Math.max(0.01,B.r/1000),B.r*100+100);
+  let ap=gl.getAttribLocation(prog,'p'),an=gl.getAttribLocation(prog,'n'),auv=gl.getAttribLocation(prog,'uv'),um=gl.getUniformLocation(prog,'mvp'),umo=gl.getUniformLocation(prog,'mo'),uc=gl.getUniformLocation(prog,'color'),usc=gl.getUniformLocation(prog,'statusColor'),usa=gl.getUniformLocation(prog,'statusAlpha'),up=gl.getUniformLocation(prog,'pulse'),uum=gl.getUniformLocation(prog,'useMap'),ue=gl.getUniformLocation(prog,'exposure'),utex=gl.getUniformLocation(prog,'tex'),uenv=gl.getUniformLocation(prog,'envTex'),uuse=gl.getUniformLocation(prog,'useEnv'),umet=gl.getUniformLocation(prog,'metallic'),urgh=gl.getUniformLocation(prog,'roughness'),uem=gl.getUniformLocation(prog,'emissive'),ual=gl.getUniformLocation(prog,'alpha'),uop=gl.getUniformLocation(prog,'outlinePass'),uoc=gl.getUniformLocation(prog,'outlineColor'),uot=gl.getUniformLocation(prog,'outlineThickness');
+  gl.uniform1i(utex,0);
+  gl.uniform1i(uenv,1);
+  for(const it of meshes){
+    let isSelected=selectedCode&&N(it.bind)===selectedCode;
+    let st=match(it.name,it.bind),scol=st?col(st):[0,0,0],salpha=0;
+    if(st){salpha=(st==='fault'?0.022:(st==='running'?0.0:(st==='maintenance'?0.010:0.002)))}
+    let alphaVal=(it.alpha==null?1:it.alpha);
+    if(!isSelected&&selectedCode){alphaVal=0.18}
+    let pulse=(isSelected?0.10:(st==='fault'?(Math.sin(Date.now()/360)+1)/2*0.10:0)),mvp=MM(proj,MM(view,it.model));
+    gl.uniformMatrix4fv(um,false,new Float32Array(mvp));
+    gl.uniformMatrix4fv(umo,false,new Float32Array(it.model));
+    gl.uniform3fv(uc,new Float32Array(it.color));
+    gl.uniform3fv(usc,new Float32Array(scol));
+    gl.uniform1f(usa,salpha);
+    gl.uniform1f(up,pulse);
+    gl.uniform1f(uum,it.texture?1:0);
+    gl.uniform1f(ue,1.06);
+    gl.uniform1f(umet,it.metallic||0);
+    gl.uniform1f(urgh,it.roughness==null?0.5:it.roughness);
+    gl.uniform3fv(uem,new Float32Array(it.emissive||[0,0,0]));
+    gl.uniform1f(ual,alphaVal);
+    gl.uniform1f(uop,0);
+    gl.uniform1f(uot,0);
+    gl.uniform3fv(uoc,new Float32Array(scol));
+    gl.uniform1f(uuse,0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D,it.texture||solidTex());
+    gl.bindBuffer(gl.ARRAY_BUFFER,it.v);gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,it.n);gl.enableVertexAttribArray(an);gl.vertexAttribPointer(an,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ARRAY_BUFFER,it.u);gl.enableVertexAttribArray(auv);gl.vertexAttribPointer(auv,2,gl.FLOAT,false,0,0);
+    let issue=()=>{if(it.indexed){gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,it.i);gl.drawElements(gl.TRIANGLES,it.count,gl.UNSIGNED_INT,0)}else gl.drawArrays(gl.TRIANGLES,0,it.count)};
+    issue();
+    if(isSelected){
+      gl.uniform1f(uop,1);
+      gl.uniform1f(uot,B.r*0.012);
+      gl.uniform3fv(uoc,new Float32Array([1,1,1]));
+      gl.depthFunc(gl.LEQUAL);
+      issue();
+      gl.depthFunc(gl.LESS);
+      gl.uniform1f(uop,0);
+    }
+  }
+}
+
+async function loadState(){
+  try{
+    let r=await fetch('twin_state.json?ts='+Date.now(),{cache:'no-store'});
+    state=await r.json();
+    state._clientReadAt=Date.now();
+    if(selectedCode)buildDetail(selectedCode);
+    buildDeviceList();
+    updateMinimap();
+  }catch(e){console.warn(e)}
+}
+
+function getUrlParam(name){
+  let url=new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+(async()=>{
+  try{
+    init();
+    let g=await load();
+    build(g);
+    selectedCode=getUrlParam('code')||'';
+    if(selectedCode){centerCamera();buildDetail(selectedCode)}
+    buildDeviceList();
+    updateMinimap();
+    hide();
+    await loadState();
+    setInterval(loadState,1000);
+    draw();
+  }catch(e){console.error(e);show('<span class="err">加载失败：</span>'+(e.message||e))}
+})();
+
+c.oncontextmenu=e=>e.preventDefault();
+c.onmousedown=e=>{drag=true;last=[e.clientX,e.clientY];btn=e.button};
+window.onmouseup=()=>drag=false;
+window.onmousemove=e=>{
+  if(!drag)return;
+  let dx=e.clientX-last[0],dy=e.clientY-last[1];
+  last=[e.clientX,e.clientY];
+  if(btn==2||btn==1){let s=B.r/350;cam.pan[0]+=dx*s;cam.pan[1]-=dy*s}else{cam.yaw+=dx*0.008;cam.pitch=Math.max(-1.45,Math.min(1.45,cam.pitch+dy*0.006))}
+};
+c.onwheel=e=>{e.preventDefault();cam.dist*=e.deltaY>0?1.12:0.89;cam.dist=Math.max(B.r*0.25,cam.dist)};
+</script></body></html>

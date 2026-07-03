@@ -4472,6 +4472,48 @@ class App(tk.Tk):
         except Exception:
             return self.sid()
 
+    def _reload_twin_viewer(self, path):
+        """
+        强制刷新三维孪生浏览器页面（关键修复）
+        """
+
+        try:
+            sid = self.current_station_id
+
+            url = f"http://127.0.0.1:8765/twin_viewer/twin_viewer_hdrpro.html"
+
+            # 带时间戳强制刷新
+            url += f"?sid={sid}&t={int(time.time())}"
+
+            import webbrowser
+            webbrowser.open(url)
+
+            print("[Twin] 已刷新三维页面:", url)
+
+        except Exception as e:
+            print("[Twin ERROR]", e)
+
+    def open_twin_viewer(self, code=None):
+        """打开或刷新三维孪生内嵌页面"""
+
+        viewer_path = os.path.join(
+            BASE_DIR,
+            'twin_viewer',
+            'twin_viewer_hdrpro.html'
+        )
+
+        url = f'http://127.0.0.1:8765/twin_viewer/twin_viewer_hdrpro.html'
+
+        if code:
+            url += f'?code={code}'
+
+        # 如果你是 webbrowser 模式
+        try:
+            import webbrowser
+            webbrowser.open(url)
+        except:
+            pass
+
     def switch_twin_station(self):
         sid = self.twin_sid()
         if sid:
@@ -4641,8 +4683,22 @@ class App(tk.Tk):
             except Exception:
                 target = path
                 target_name = os.path.basename(path)
-            html = os.path.join(viewer_dir, 'twin_viewer.html')
-            html_text = f'''<!doctype html>
+            
+            template_dir = os.path.join(BASE_DIR, 'templates')
+            hdrpro_tmpl = os.path.join(template_dir, 'twin_viewer_hdrpro.html')
+            detail_tmpl = os.path.join(template_dir, 'twin_device_detail.html')
+            
+            model_url = f'/models/{target_name}'
+            
+            if os.path.exists(hdrpro_tmpl):
+                with open(hdrpro_tmpl, 'r', encoding='utf-8') as f:
+                    html_text = f.read()
+                html_text = html_text.replace('__MODEL__', model_url)
+                html = os.path.join(viewer_dir, 'twin_viewer.html')
+                with open(html, 'w', encoding='utf-8') as f:
+                    f.write(html_text)
+            else:
+                html_text = f'''<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
@@ -4664,8 +4720,18 @@ model-viewer{{width:100%;height:calc(100vh - 54px);background:radial-gradient(ci
 <div class="fail">说明：该查看器使用浏览器 WebGL 渲染 GLB/gltf；如空白，请确认电脑可访问 model-viewer 组件网络地址，或由开发者将 three.js/model-viewer 库打包到本地。Python 当前页负责模型绑定和设备状态列表；完整三维显示由该 WebGL 查看器负责。</div>
 </body>
 </html>'''
-            with open(html, 'w', encoding='utf-8') as f:
-                f.write(html_text)
+                html = os.path.join(viewer_dir, 'twin_viewer.html')
+                with open(html, 'w', encoding='utf-8') as f:
+                    f.write(html_text)
+            
+            if os.path.exists(detail_tmpl):
+                with open(detail_tmpl, 'r', encoding='utf-8') as f:
+                    detail_text = f.read()
+                detail_text = detail_text.replace('__MODEL__', model_url)
+                detail_html = os.path.join(viewer_dir, 'twin_device_detail.html')
+                with open(detail_html, 'w', encoding='utf-8') as f:
+                    f.write(detail_text)
+            
             return html
         except Exception as e:
             messagebox.showwarning('GLB查看器准备失败', str(e))
@@ -6723,7 +6789,7 @@ def _v5714_load_twin_in_page(self, force=False):
         if not getattr(self, '_cef_initialized', False):
             cef.Initialize(settings={
                 "windowless_rendering_enabled": False,
-                "log_severity": cef.LOGSEVERITY_DISABLE,
+                "log_severity": cef.LOGSEVERITY_INFO,
                 # "log_file": "../log/cefpython.log"  # 日志文件路径
             })
             self._cef_initialized = True
