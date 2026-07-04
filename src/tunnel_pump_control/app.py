@@ -108,28 +108,57 @@ class App(tk.Tk):
             pass
 
     def create_layout(self):
-        header = tk.Frame(self, bg='#0f4c81', height=58)
-        header.pack(side='top', fill='x')
-        header.pack_propagate(False)
-        left = tk.Frame(header, bg='#0f4c81')
-        left.pack(side='left', fill='y', padx=12)
-        tk.Label(left, text='隧道泵站自动控制系统', font=('Microsoft YaHei', 20, 'bold'), bg='#0f4c81',
-                 fg='white').pack(anchor='w', pady=(7, 0))
-        tk.Label(left, text='版本：V5.7.25_TwinStateHighlightPro    版权所有：' + COPYRIGHT, font=('Microsoft YaHei', 9),
-                 bg='#0f4c81', fg='#cfe8ff').pack(anchor='w')
-        right = tk.Frame(header, bg='#0f4c81')
-        right.pack(side='right', fill='y', padx=12)
-        self.datetime_lbl = tk.Label(right, text='', font=('Microsoft YaHei', 11, 'bold'), bg='#0f4c81', fg='white')
-        self.datetime_lbl.pack(anchor='e', pady=(7, 1))
-        self.service_lbl = tk.Label(right, text='后台服务：运行中', font=('Microsoft YaHei', 10, 'bold'), bg='#0f4c81',
-                                    fg='#50fa7b')
-        self.service_lbl.pack(anchor='e')
+        # 顶部标题栏（从 build_dashboard 迁移）
+        self.dash_bg = '#031326'
+        self.dash_panel_bg = '#071f3d'
+        self.dash_panel_bg2 = '#092a50'
+        self.dash_line = '#0b5fa5'
+        self.dash_text = '#d9ecff'
+        self.dash_muted = '#7fb8ee'
+        self.dash_green = '#21e56d'
+        self.dash_blue = '#1e9bff'
+        self.dash_yellow = '#ffc526'
+        self.dash_red = '#ff4136'
 
-        sub = tk.Frame(self, bg='#e7f1fb', height=28)
+        top = tk.Frame(self, bg='#041a34', height=58,
+                       highlightbackground='#0b5fa5', highlightthickness=1)
+        top.pack(side='top', fill='x')
+        top.pack_propagate(False)
+        top.grid_columnconfigure(0, weight=1)
+        top.grid_columnconfigure(1, weight=3)
+        top.grid_columnconfigure(2, weight=1)
+
+        nav = tk.Frame(top, bg='#041a34')
+        nav.grid(row=0, column=0, sticky='nsew', padx=8)
+        tk.Label(nav, text='☰', font=('Microsoft YaHei', 15, 'bold'), bg='#09294f', fg='#8cc8ff',
+                 width=3, bd=0, relief='flat').pack(side='left', pady=12)
+        tk.Label(nav, text='◇', font=('Microsoft YaHei', 15), bg='#041a34', fg='#6bbcff').pack(side='left', padx=8)
+        tk.Label(nav, text='⌂  泵站总览', font=('Microsoft YaHei', 10, 'bold'), bg='#0a2d56', fg='#eaf6ff',
+                 padx=12, pady=6).pack(side='left')
+
+        tk.Label(top, text='隧道泵站自动控制系统  V5.7', font=('Microsoft YaHei', 22, 'bold'),
+                 bg='#041a34', fg='#f3f8ff').grid(row=0, column=1, sticky='nsew')
+
+        right = tk.Frame(top, bg='#041a34')
+        right.grid(row=0, column=2, sticky='nsew', padx=8)
+        self.dash_datetime_lbl = tk.Label(right, text='-', font=('Consolas', 10, 'bold'), bg='#041a34',
+                                          fg='#d8edff')
+        self.dash_datetime_lbl.pack(side='left', padx=(0, 10), pady=18)
+        self.dash_week_lbl = tk.Label(right, text='-', font=('Microsoft YaHei', 9), bg='#041a34', fg='#d8edff')
+        self.dash_week_lbl.pack(side='left', padx=(0, 12), pady=18)
+        self.dash_backend_lbl = tk.Label(right, text='后端服务：● 正常', font=('Microsoft YaHei', 9),
+                                         bg='#041a34', fg=self.dash_green)
+        self.dash_backend_lbl.pack(side='left', padx=(0, 12), pady=18)
+        self.dash_total_status_lbl = tk.Label(right, text='总状态：● 正常', font=('Microsoft YaHei', 9),
+                                              bg='#041a34', fg=self.dash_green)
+        self.dash_total_status_lbl.pack(side='left', pady=18)
+        self.dash_header = self.dash_datetime_lbl
+
+        sub = tk.Frame(self, bg='#071f3d', height=28)
         sub.pack(side='top', fill='x')
         sub.pack_propagate(False)
-        self.station_lbl = tk.Label(sub, text='当前泵站：-', font=('Microsoft YaHei', 9, 'bold'), bg='#e7f1fb',
-                                    fg='#0f4c81')
+        self.station_lbl = tk.Label(sub, text='当前泵站：-', font=('Microsoft YaHei', 9, 'bold'), bg='#071f3d',
+                                    fg='#8cc8ff')
         self.station_lbl.pack(side='right', padx=12)
 
         self.nb = ttk.Notebook(self)
@@ -385,41 +414,6 @@ class App(tk.Tk):
 
         self.dash_container = tk.Frame(f, bg=self.dash_bg)
         self.dash_container.pack(fill='both', expand=True)
-
-        # 顶部标题栏
-        top = tk.Frame(self.dash_container, bg='#041a34', height=58,
-                       highlightbackground='#0b5fa5', highlightthickness=1)
-        top.pack(fill='x', padx=10, pady=(8, 6))
-        top.pack_propagate(False)
-        top.grid_columnconfigure(0, weight=1)
-        top.grid_columnconfigure(1, weight=3)
-        top.grid_columnconfigure(2, weight=1)
-
-        nav = tk.Frame(top, bg='#041a34')
-        nav.grid(row=0, column=0, sticky='nsew', padx=8)
-        tk.Label(nav, text='☰', font=('Microsoft YaHei', 15, 'bold'), bg='#09294f', fg='#8cc8ff',
-                 width=3, bd=0, relief='flat').pack(side='left', pady=12)
-        tk.Label(nav, text='◇', font=('Microsoft YaHei', 15), bg='#041a34', fg='#6bbcff').pack(side='left', padx=8)
-        tk.Label(nav, text='⌂  泵站总览', font=('Microsoft YaHei', 10, 'bold'), bg='#0a2d56', fg='#eaf6ff',
-                 padx=12, pady=6).pack(side='left')
-
-        tk.Label(top, text='隧道泵站自动控制系统  V5.7', font=('Microsoft YaHei', 22, 'bold'),
-                 bg='#041a34', fg='#f3f8ff').grid(row=0, column=1, sticky='nsew')
-
-        right = tk.Frame(top, bg='#041a34')
-        right.grid(row=0, column=2, sticky='nsew', padx=8)
-        self.dash_datetime_lbl = tk.Label(right, text='-', font=('Consolas', 10, 'bold'), bg='#041a34',
-                                          fg='#d8edff')
-        self.dash_datetime_lbl.pack(side='left', padx=(0, 10), pady=18)
-        self.dash_week_lbl = tk.Label(right, text='-', font=('Microsoft YaHei', 9), bg='#041a34', fg='#d8edff')
-        self.dash_week_lbl.pack(side='left', padx=(0, 12), pady=18)
-        self.dash_backend_lbl = tk.Label(right, text='后端服务：● 正常', font=('Microsoft YaHei', 9),
-                                         bg='#041a34', fg=self.dash_green)
-        self.dash_backend_lbl.pack(side='left', padx=(0, 12), pady=18)
-        self.dash_total_status_lbl = tk.Label(right, text='总状态：● 正常', font=('Microsoft YaHei', 9),
-                                              bg='#041a34', fg=self.dash_green)
-        self.dash_total_status_lbl.pack(side='left', pady=18)
-        self.dash_header = self.dash_datetime_lbl
 
         # KPI 指标区
         kpi_row = tk.Frame(self.dash_container, bg=self.dash_bg, height=86)
