@@ -140,7 +140,8 @@ class App(tk.Tk):
             '水泵管理': '🔵 水泵管理', '母管管理': '🟩 母管管理', '仪表管理': '📟 仪表管理',
             '模型示意': '🤖 模型示意', '手动控制': '🕹 手动控制',
             '参数配置': '⚙ 参数配置', '通讯设置': '🌐 通讯设置', '变量/点位管理': '🔢 变量点位',
-            '视频监控':'🎥 视频监控', '三维孪生':'🌐 三维孪生', '数据绑定':'🔗 数据绑定', '报表导出':'📄 报表导出', '日志':'📋 日志'
+            '视频监控': '🎥 视频监控', '三维孪生': '🌐 三维孪生', '数据绑定': '🔗 数据绑定', '报表导出': '📄 报表导出',
+            '日志': '📋 日志'
         }
         for name in ['首页总览', '泵站监控', '泵站管理', '水泵管理', '母管管理', '仪表管理', '模型示意', '手动控制',
                      '参数配置', '通讯设置', '变量/点位管理', '视频监控', '三维孪生', '数据绑定', '报表导出', '日志']:
@@ -1727,12 +1728,13 @@ class App(tk.Tk):
                 self.db.execute(
                     'INSERT OR IGNORE INTO pump_pipe_relation(station_id,pump_id,pipe_id,relation_type,enabled) VALUES(?,?,?,?,1)',
                     (sid, new_id, pipe['id'], 'main_drain'))
-            self.db.generate_default_points(sid);
-            self.db.recalculate_pipe(sid);
-            self.edit_pump_id = new_id;
+            self.db.generate_default_points(sid)
+            self.db.recalculate_pipe(sid)
+            self.edit_pump_id = new_id
             self.refresh_all()
             try:
-                self.pump_tree.selection_set(str(new_id)); self.pump_tree.see(str(new_id))
+                self.pump_tree.selection_set(str(new_id))
+                self.pump_tree.see(str(new_id))
             except Exception:
                 pass
             messagebox.showinfo('成功', '水泵已新增')
@@ -1784,7 +1786,8 @@ class App(tk.Tk):
             self.db.recalculate_pipe(self.sid());
             self.refresh_all()
             try:
-                self.pump_tree.selection_set(str(pid)); self.pump_tree.see(str(pid))
+                self.pump_tree.selection_set(str(pid));
+                self.pump_tree.see(str(pid))
             except Exception:
                 pass
             messagebox.showinfo('成功', '水泵已保存')
@@ -2692,7 +2695,7 @@ class App(tk.Tk):
                 px = 45 + (j % 3) * 110;
                 py = 410 + (j // 3) * 95
                 status_icon = '🟢' if p['run_feedback'] else '🔴' if p['fault_feedback'] or p['manual_fault'] else '🟡' if \
-                p['maintenance'] else '⚪'
+                    p['maintenance'] else '⚪'
                 fill = '#e8f5e9' if p['run_feedback'] else '#ffebee' if p['fault_feedback'] or p[
                     'manual_fault'] else '#fff8e1' if p['maintenance'] else '#f5f5f5'
                 c.create_rectangle(px, py, px + 96, py + 48, fill=fill, outline='#455a64')
@@ -4377,7 +4380,7 @@ class App(tk.Tk):
         url = d.get('rtsp_url') or ''
         if not url and d.get('ip_address'):
             auth = (d.get('username', '') + ':' + d.get('password', '') + '@') if (
-                        d.get('username') or d.get('password')) else ''
+                    d.get('username') or d.get('password')) else ''
             url = f"rtsp://{auth}{d.get('ip_address')}:{d.get('port') or 554}/Streaming/Channels/101"
         if not url:
             messagebox.showwarning('提示', '请先填写 RTSP 地址或 IP 地址');
@@ -4475,11 +4478,11 @@ class App(tk.Tk):
     def switch_twin_station(self):
         sid = self.twin_sid()
         if sid:
-            self.current_station_id = sid;
-            self.db.set_current_station(sid);
+            self.current_station_id = sid
+            self.db.set_current_station(sid)
             self.refresh_station_label()
-        self.load_twin_model_config();
-        self.draw_twin_scene();
+        self.load_twin_model_config()
+        self.draw_twin_scene()
         self.populate_twin_list()
 
     def load_twin_model_config(self):
@@ -4641,8 +4644,22 @@ class App(tk.Tk):
             except Exception:
                 target = path
                 target_name = os.path.basename(path)
-            html = os.path.join(viewer_dir, 'twin_viewer.html')
-            html_text = f'''<!doctype html>
+
+            template_dir = os.path.join(BASE_DIR, 'templates')
+            hdrpro_tmpl = os.path.join(template_dir, 'twin_viewer_hdrpro.html')
+            detail_tmpl = os.path.join(template_dir, 'twin_device_detail.html')
+
+            model_url = f'/models/{target_name}'
+
+            if os.path.exists(hdrpro_tmpl):
+                with open(hdrpro_tmpl, 'r', encoding='utf-8') as f:
+                    html_text = f.read()
+                html_text = html_text.replace('__MODEL__', model_url)
+                html = os.path.join(viewer_dir, 'twin_viewer.html')
+                with open(html, 'w', encoding='utf-8') as f:
+                    f.write(html_text)
+            else:
+                html_text = f'''<!doctype html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8"/>
@@ -4664,8 +4681,18 @@ model-viewer{{width:100%;height:calc(100vh - 54px);background:radial-gradient(ci
 <div class="fail">说明：该查看器使用浏览器 WebGL 渲染 GLB/gltf；如空白，请确认电脑可访问 model-viewer 组件网络地址，或由开发者将 three.js/model-viewer 库打包到本地。Python 当前页负责模型绑定和设备状态列表；完整三维显示由该 WebGL 查看器负责。</div>
 </body>
 </html>'''
-            with open(html, 'w', encoding='utf-8') as f:
-                f.write(html_text)
+                html = os.path.join(viewer_dir, 'twin_viewer.html')
+                with open(html, 'w', encoding='utf-8') as f:
+                    f.write(html_text)
+
+            if os.path.exists(detail_tmpl):
+                with open(detail_tmpl, 'r', encoding='utf-8') as f:
+                    detail_text = f.read()
+                detail_text = detail_text.replace('__MODEL__', model_url)
+                detail_html = os.path.join(viewer_dir, 'twin_device_detail.html')
+                with open(detail_html, 'w', encoding='utf-8') as f:
+                    f.write(detail_text)
+
             return html
         except Exception as e:
             messagebox.showwarning('GLB查看器准备失败', str(e))
@@ -5128,6 +5155,7 @@ model-viewer{{width:100%;height:calc(100vh - 54px);background:radial-gradient(ci
 def _v578_twin_viewer_url(self):
     return f'http://127.0.0.1:{self.twin_http_port}/twin_viewer.html'
 
+
 def _v578_status_from_pump(self, p):
     try:
         if int(p['disabled'] or 0): return 'disabled', '禁用'
@@ -5316,6 +5344,7 @@ def _v578_refresh_twin_scene(self):
             self.draw_twin_scene()
     except Exception:
         pass
+
 
 App._twin_viewer_url = _v578_twin_viewer_url
 App._write_twin_state_json = _v578_write_twin_state_json
@@ -5526,9 +5555,11 @@ def _v5710_start_twin_http_server(self):
             threading.Thread(target=self.twin_httpd.serve_forever, daemon=True).start();
             return True
         except OSError as e:
-            last_err = e; continue
+            last_err = e;
+            continue
         except Exception as e:
-            last_err = e; break
+            last_err = e;
+            break
     messagebox.showwarning('GLB查看器启动失败', '本地HTTP服务启动失败：' + str(last_err));
     return False
 
@@ -6383,7 +6414,7 @@ def _v5713_save_twin_model(self):
         log = self._log_twin_error('保存GLB模型失败', e, path)
         messagebox.showwarning('保存失败',
                                '模型保存失败。\n\n可能原因：文件被占用、无读取权限、model.glb 实际是文件夹或模型文件损坏。\n\n日志：\n' + (
-                                           log or '') + '\n\n错误：\n' + str(e))
+                                       log or '') + '\n\n错误：\n' + str(e))
         return None
 
 
@@ -6723,7 +6754,7 @@ def _v5714_load_twin_in_page(self, force=False):
         if not getattr(self, '_cef_initialized', False):
             cef.Initialize(settings={
                 "windowless_rendering_enabled": False,
-                "log_severity": cef.LOGSEVERITY_DISABLE,
+                "log_severity": cef.LOGSEVERITY_INFO,
                 # "log_file": "../log/cefpython.log"  # 日志文件路径
             })
             self._cef_initialized = True
@@ -6772,7 +6803,7 @@ def _v5714_load_twin_in_page(self, force=False):
                     h,
                     True
                 )
-                print("BrowserRect:",win32gui.GetWindowRect(hwnd))
+                print("BrowserRect:", win32gui.GetWindowRect(hwnd))
                 self.browser.NotifyMoveOrResizeStarted()
                 self.browser.WasResized()
             except Exception as e:
@@ -7629,18 +7660,7 @@ def _v5719_prepare_twin_web_model(self, path):
                                       '正在加载 GLB 模型...\n模型路径：' + model_url + '\n状态文件：/twin_viewer/twin_state.json\n渲染模式：V5.7.25 StateHighlightPro\n增强：HDR环境贴图 + 阴影地台 + 轮廓描边')
         with open(html, 'w', encoding='utf-8') as f:
             f.write(html_text)
-
-        # V5.7.25 DetailPageFix：主查看器双击设备会跳转到 twin_viewer_detail.html，
-        # 必须同步把详情页也写入运行期 twin_viewer 目录，否则内嵌浏览器跳转后会 404/空白。
-        detail_tpl = os.path.join(BASE_DIR, 'templates', 'twin_viewer_detail.html')
-        detail_html = os.path.join(viewer_dir, 'twin_viewer_detail.html')
-        if os.path.exists(detail_tpl):
-            with open(detail_tpl, 'r', encoding='utf-8') as f:
-                detail_text = f.read()
-            detail_text = detail_text.replace('__MODEL__', model_url)
-            with open(detail_html, 'w', encoding='utf-8') as f:
-                f.write(detail_text)
-
+        return html
     except Exception as e:
         log = self._log_twin_error('V5.7.25 StateHighlightPro GLB查看器准备失败', e, path)
         messagebox.showwarning('GLB查看器准备失败',
