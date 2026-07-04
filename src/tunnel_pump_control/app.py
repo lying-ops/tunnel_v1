@@ -25,7 +25,6 @@ class App(tk.Tk):
         self.configure(bg="#edf4fb")
         self._setup_styles()
         self.current_station_id = self.db.get_current_station_id()
-        self.blink_on = True
         self.manual_freq_entries = {}
         self.monitor_pump_cards = {}
         self.monitor_card_signature = None
@@ -108,59 +107,8 @@ class App(tk.Tk):
             pass
 
     def create_layout(self):
-        # 顶部标题栏（从 build_dashboard 迁移）
-        self.dash_bg = '#031326'
-        self.dash_panel_bg = '#071f3d'
-        self.dash_panel_bg2 = '#092a50'
-        self.dash_line = '#0b5fa5'
-        self.dash_text = '#d9ecff'
-        self.dash_muted = '#7fb8ee'
-        self.dash_green = '#21e56d'
-        self.dash_blue = '#1e9bff'
-        self.dash_yellow = '#ffc526'
-        self.dash_red = '#ff4136'
-
-        top = tk.Frame(self, bg='#041a34', height=58,
-                       highlightbackground='#0b5fa5', highlightthickness=1)
-        top.pack(side='top', fill='x')
-        top.pack_propagate(False)
-        top.grid_columnconfigure(0, weight=1)
-        top.grid_columnconfigure(1, weight=3)
-        top.grid_columnconfigure(2, weight=1)
-
-        nav = tk.Frame(top, bg='#041a34')
-        nav.grid(row=0, column=0, sticky='nsew', padx=8)
-        tk.Label(nav, text='☰', font=('Microsoft YaHei', 15, 'bold'), bg='#09294f', fg='#8cc8ff',
-                 width=3, bd=0, relief='flat').pack(side='left', pady=12)
-        tk.Label(nav, text='◇', font=('Microsoft YaHei', 15), bg='#041a34', fg='#6bbcff').pack(side='left', padx=8)
-        tk.Label(nav, text='⌂  泵站总览', font=('Microsoft YaHei', 10, 'bold'), bg='#0a2d56', fg='#eaf6ff',
-                 padx=12, pady=6).pack(side='left')
-
-        tk.Label(top, text='隧道泵站自动控制系统  V5.7', font=('Microsoft YaHei', 22, 'bold'),
-                 bg='#041a34', fg='#f3f8ff').grid(row=0, column=1, sticky='nsew')
-
-        right = tk.Frame(top, bg='#041a34')
-        right.grid(row=0, column=2, sticky='nsew', padx=8)
-        self.dash_datetime_lbl = tk.Label(right, text='-', font=('Consolas', 10, 'bold'), bg='#041a34',
-                                          fg='#d8edff')
-        self.dash_datetime_lbl.pack(side='left', padx=(0, 10), pady=18)
-        self.dash_week_lbl = tk.Label(right, text='-', font=('Microsoft YaHei', 9), bg='#041a34', fg='#d8edff')
-        self.dash_week_lbl.pack(side='left', padx=(0, 12), pady=18)
-        self.dash_backend_lbl = tk.Label(right, text='后端服务：● 正常', font=('Microsoft YaHei', 9),
-                                         bg='#041a34', fg=self.dash_green)
-        self.dash_backend_lbl.pack(side='left', padx=(0, 12), pady=18)
-        self.dash_total_status_lbl = tk.Label(right, text='总状态：● 正常', font=('Microsoft YaHei', 9),
-                                              bg='#041a34', fg=self.dash_green)
-        self.dash_total_status_lbl.pack(side='left', pady=18)
-        self.dash_header = self.dash_datetime_lbl
-
-        sub = tk.Frame(self, bg='#071f3d', height=28)
-        sub.pack(side='top', fill='x')
-        sub.pack_propagate(False)
-        self.station_lbl = tk.Label(sub, text='当前泵站：-', font=('Microsoft YaHei', 9, 'bold'), bg='#071f3d',
-                                    fg='#8cc8ff')
-        self.station_lbl.pack(side='right', padx=12)
-
+        # 头部
+        self._build_header()
         self.nb = ttk.Notebook(self)
         self.nb.pack(fill='both', expand=True, padx=4, pady=4)
         self.pages = {}
@@ -195,6 +143,37 @@ class App(tk.Tk):
         self.build_log_page()
         self._update_datetime_label()
 
+    def _build_header(self):
+        # 顶部标题栏
+        top = tk.Frame(self, bg='#041a34', height=58,
+                       highlightbackground='#0b5fa5', highlightthickness=1)
+        top.pack(fill='x', padx=10, pady=(8, 6))
+        top.pack_propagate(False)
+        top.grid_columnconfigure(0, weight=1)
+        top.grid_columnconfigure(1, weight=3)
+        top.grid_columnconfigure(2, weight=1)
+
+        nav = tk.Frame(top, bg='#041a34')
+        nav.grid(row=0, column=0, sticky='nsew', padx=8)
+        tk.Label(nav, text='☰', font=('Microsoft YaHei', 15, 'bold'), bg='#09294f', fg='#8cc8ff',
+                 width=3, bd=0, relief='flat').pack(side='left', pady=12)
+        tk.Label(nav, text='◇', font=('Microsoft YaHei', 15), bg='#041a34', fg='#6bbcff').pack(side='left', padx=8)
+        tk.Label(nav, text='⌂  泵站总览', font=('Microsoft YaHei', 10, 'bold'), bg='#0a2d56', fg='#eaf6ff',
+                 padx=12, pady=6).pack(side='left')
+
+        tk.Label(top, text='隧道泵站自动控制系统  V5.7', font=('Microsoft YaHei', 22, 'bold'),
+                 bg='#041a34', fg='#f3f8ff').grid(row=0, column=1, sticky='nsew')
+
+        right = tk.Frame(top, bg='#041a34')
+        right.grid(row=0, column=2, sticky='nsew', padx=8)
+
+        self.datetime_lbl = tk.Label(right, text='-', font=('Microsoft YaHei', 9), bg='#041a34',
+                                          fg='#d8edff')
+        self.datetime_lbl.pack(side='left', padx=(0, 12), pady=18)
+        self.backend_lbl = tk.Label(right, text='后端服务：● 正常', font=('Microsoft YaHei', 9),
+                                         bg='#041a34', fg="#21e56d")
+        self.backend_lbl.pack(side='left', padx=(0, 12), pady=18)
+
     def _update_datetime_label(self):
         try:
             weekday = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'][
@@ -206,10 +185,9 @@ class App(tk.Tk):
             pass
 
     def periodic(self):
-        self.blink_on = not getattr(self, 'blink_on', True)
-        self.service_lbl.config(text=f'后台服务：运行中  心跳：{self.service.heartbeat}')
         self._update_datetime_label()
         self.refresh_realtime()
+        self.backend_lbl.config(text=f'后端服务：● 正常', fg="#21e56d")
         self.after(1000, self.periodic)
 
     def sid(self):
@@ -365,7 +343,6 @@ class App(tk.Tk):
     def refresh_all(self):
         self.current_station_id = self.db.get_current_station_id()
         st = self.get_station()
-        self.station_lbl.config(text='当前泵站：' + (st['station_name'] if st else '-'))
         if not st:
             self.refresh_station_list()
             self.clear_current_station_views()
@@ -375,6 +352,7 @@ class App(tk.Tk):
             self.refresh_model_station_choices()
             self.refresh_twin_station_combo()
             self._twin_binding_refresh_station_combo()
+            self.refresh_dashboard()
             return
         self.refresh_station_list()
         self.refresh_pump_list()
@@ -385,6 +363,7 @@ class App(tk.Tk):
         self.refresh_camera_list()
         self.refresh_params()
         self.refresh_config_params()
+        self.refresh_dashboard()
         self.refresh_log()
         self.refresh_realtime()
         self.refresh_manual_lists()
@@ -988,15 +967,6 @@ class App(tk.Tk):
             s = {'station_count': 0, 'pump_count': 0, 'running': 0, 'standby': 0, 'fault': 0, 'maintenance': 0,
                  'total_current': 0, 'total_voltage': 0, 'total_power': 0, 'total_flow': 0, 'day_flow': 0,
                  'day_energy': 0, 'comm_online': 0, 'comm_offline': 0, 'comm_total': 0}
-        dt = datetime.datetime.now()
-        week_map = ['星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日']
-        self.dash_datetime_lbl.config(text=dt.strftime('%Y-%m-%d   %H:%M:%S'))
-        self.dash_week_lbl.config(text=week_map[dt.weekday()])
-        heartbeat = getattr(getattr(self, 'service', None), 'heartbeat', 0)
-        self.dash_backend_lbl.config(text=f'后端服务：● 正常', fg=self.dash_green)
-        ok = (s.get('fault', 0) == 0 and s.get('comm_offline', 0) == 0)
-        self.dash_total_status_lbl.config(text='总状态：● 正常' if ok else '总状态：● 异常',
-                                          fg=self.dash_green if ok else self.dash_red)
 
         st = self.get_station()
         if st:
