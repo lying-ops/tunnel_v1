@@ -874,49 +874,171 @@ class App(tk.Tk):
             c.create_oval(x - 3, lower_y - 3, x + 3, lower_y + 3, fill='#7cff9f', outline='')
 
     def _build_status_cards(self, pumps, feed_pumps):
-        for w in self.dash_status_body.winfo_children():
-            w.destroy()
+        if not hasattr(self, '_dash_pump_cards'):
+            self._dash_pump_cards = {}
+            self._dash_pump_expanded = {'P': False, 'JP': False}
+            for w in self.dash_status_body.winfo_children():
+                w.destroy()
 
-        def section(title, row):
-            tk.Label(self.dash_status_body, text='▌' + title, font=('Microsoft YaHei', 10, 'bold'), bg='#071f3d',
-                     fg='#dceeff', anchor='w').grid(row=row, column=0, columnspan=4, sticky='ew', padx=10,
-                                                    pady=(6, 4))
+            self._dash_cards_frame = tk.Frame(self.dash_status_body, bg='#071f3d')
+            self._dash_cards_frame.pack(side='top', fill='both', expand=True)
 
-        def card(p, prefix, idx, row, col):
-            icon, color, text = self._dash_pump_state(p, standby=True)
-            code = self._dash_pump_code(p, prefix, idx)
-            bg = '#092e34' if text == '运行' else '#08284c' if text == '备用' else '#332d09' if text == '检修' else '#350b18'
-            box = tk.Frame(self.dash_status_body, bg=bg, highlightbackground=color, highlightthickness=1)
-            box.grid(row=row, column=col, sticky='nsew', padx=5, pady=4)
-            top = tk.Frame(box, bg=bg)
-            top.pack(fill='x', padx=8, pady=(7, 1))
-            tk.Label(top, text=icon, font=('Microsoft YaHei', 12, 'bold'), bg=bg, fg=color).pack(side='left')
-            tk.Label(top, text=code, font=('Consolas', 11, 'bold'), bg=bg, fg='#eaf6ff').pack(side='left',
-                                                                                              padx=(5, 0))
-            tk.Label(box, text=text, font=('Microsoft YaHei', 10, 'bold'), bg=bg, fg=color).pack(pady=(0, 8))
+            legend_frame = tk.Frame(self.dash_status_body, bg='#071f3d')
+            legend_frame.pack(side='bottom', fill='x', padx=10, pady=(8, 4))
+            for text, color in [('运行', self.dash_green), ('备用', self.dash_blue), ('检修', self.dash_yellow),
+                                ('故障', self.dash_red), ('停止', '#95a3b3')]:
+                tk.Label(legend_frame, text='●', font=('Microsoft YaHei', 10, 'bold'), bg='#071f3d', fg=color).pack(
+                    side='left', padx=(0, 3))
+                tk.Label(legend_frame, text=text, font=('Microsoft YaHei', 8), bg='#071f3d', fg='#dceeff').pack(
+                    side='left', padx=(0, 12))
 
-        for col in range(4):
-            self.dash_status_body.grid_columnconfigure(col, weight=1, uniform='status')
-        section('主泵（P1~P8）', 0)
-        for i in range(8):
-            card(pumps[i] if i < len(pumps) else None, 'P', i + 1, 1 + i // 4, i % 4)
-        tk.Frame(self.dash_status_body, bg='#12385a', height=1).grid(row=3, column=0, columnspan=4, sticky='ew',
-                                                                     padx=10, pady=4)
-        section('补水泵（JP1~JP8）', 4)
-        for i in range(8):
-            card(feed_pumps[i] if i < len(feed_pumps) else None, 'JP', i + 1, 5 + i // 4, i % 4)
-        legend = tk.Frame(self.dash_status_body, bg='#071f3d')
-        legend.grid(row=7, column=0, columnspan=4, sticky='ew', padx=10, pady=(8, 4))
-        for text, color in [('运行', self.dash_green), ('备用', self.dash_blue), ('检修', self.dash_yellow),
-                            ('故障', self.dash_red), ('停止', '#95a3b3')]:
-            tk.Label(legend, text='●', font=('Microsoft YaHei', 10, 'bold'), bg='#071f3d', fg=color).pack(
-                side='left', padx=(0, 3))
-            tk.Label(legend, text=text, font=('Microsoft YaHei', 8), bg='#071f3d', fg='#dceeff').pack(side='left',
-                                                                                                      padx=(0, 12))
+            self._dash_section_labels = {'P': None, 'JP': None}
+            self._dash_empty_labels = {'P': None, 'JP': None}
+            self._dash_separator = None
+            self._dash_more_buttons = {'P': None, 'JP': None}
+
+            for col in range(4):
+                self._dash_cards_frame.grid_columnconfigure(col, weight=1, uniform='status')
+
+        def update_card(key, p, prefix, idx, row, col, show):
+            if key not in self._dash_pump_cards:
+                icon, color, text = self._dash_pump_state(p, standby=True)
+                code = self._dash_pump_code(p, prefix, idx)
+                bg = '#092e34' if text == '运行' else '#08284c' if text == '备用' else '#332d09' if text == '检修' else '#350b18'
+                box = tk.Frame(self._dash_cards_frame, bg=bg, highlightbackground=color, highlightthickness=1)
+                top = tk.Frame(box, bg=bg)
+                top.pack(fill='x', padx=8, pady=(7, 1))
+                icon_lbl = tk.Label(top, text=icon, font=('Microsoft YaHei', 12, 'bold'), bg=bg, fg=color)
+                icon_lbl.pack(side='left')
+                code_lbl = tk.Label(top, text=code, font=('Consolas', 11, 'bold'), bg=bg, fg='#eaf6ff')
+                code_lbl.pack(side='left', padx=(5, 0))
+                text_lbl = tk.Label(box, text=text, font=('Microsoft YaHei', 10, 'bold'), bg=bg, fg=color)
+                text_lbl.pack(pady=(0, 8))
+                self._dash_pump_cards[key] = {'box': box, 'top': top, 'icon': icon_lbl, 'code': code_lbl,
+                                              'text': text_lbl, 'bg': bg, 'color': color, 'row': row, 'col': col}
+            else:
+                card_data = self._dash_pump_cards[key]
+                card_data['row'] = row
+                card_data['col'] = col
+                icon, color, text = self._dash_pump_state(p, standby=True)
+                code = self._dash_pump_code(p, prefix, idx)
+                bg = '#092e34' if text == '运行' else '#08284c' if text == '备用' else '#332d09' if text == '检修' else '#350b18'
+                if card_data['bg'] != bg:
+                    card_data['bg'] = bg
+                    card_data['box'].config(bg=bg)
+                    card_data['top'].config(bg=bg)
+                    card_data['icon'].config(bg=bg)
+                    card_data['code'].config(bg=bg)
+                    card_data['text'].config(bg=bg)
+                if card_data['color'] != color:
+                    card_data['color'] = color
+                    card_data['box'].config(highlightbackground=color)
+                    card_data['icon'].config(fg=color)
+                    card_data['text'].config(fg=color)
+                card_data['icon'].config(text=icon)
+                card_data['code'].config(text=code)
+                card_data['text'].config(text=text)
+            if show:
+                self._dash_pump_cards[key]['box'].grid(row=row, column=col,
+                                                        sticky='nsew', padx=5, pady=4)
+            else:
+                self._dash_pump_cards[key]['box'].grid_remove()
+
+        def build_pump_section(items, prefix, title_prefix, start_row):
+            title = title_prefix + '（' + prefix + '1~' + prefix + str(len(items)) + '）'
+            if self._dash_section_labels[prefix] is None:
+                self._dash_section_labels[prefix] = tk.Label(self._dash_cards_frame, text='▌' + title,
+                                                              font=('Microsoft YaHei', 10, 'bold'), bg='#071f3d',
+                                                              fg='#dceeff', anchor='w')
+                self._dash_section_labels[prefix].grid(row=start_row, column=0, columnspan=4, sticky='ew', padx=10,
+                                                       pady=(6, 4))
+            else:
+                self._dash_section_labels[prefix].config(text='▌' + title)
+                self._dash_section_labels[prefix].grid(row=start_row, column=0, columnspan=4, sticky='ew', padx=10,
+                                                       pady=(6, 4))
+
+            if self._dash_empty_labels[prefix] is not None:
+                self._dash_empty_labels[prefix].grid_remove()
+
+            if len(items) == 0:
+                if self._dash_empty_labels[prefix] is None:
+                    self._dash_empty_labels[prefix] = tk.Label(self._dash_cards_frame, text='暂无' + title_prefix,
+                                                               font=('Microsoft YaHei', 9), bg='#071f3d',
+                                                               fg='#7fb8ee')
+                self._dash_empty_labels[prefix].grid(row=start_row + 1, column=0, columnspan=4, sticky='ew',
+                                                     padx=10, pady=8)
+                return start_row + 2
+
+            show_count = len(items) if self._dash_pump_expanded[prefix] else min(7, len(items))
+            has_more = len(items) > 7 and not self._dash_pump_expanded[prefix]
+
+            for i, p in enumerate(items):
+                key = f"{prefix}_{i}"
+                row = start_row + 1 + i // 4
+                col = i % 4
+                update_card(key, p, prefix, i + 1, row, col, i < show_count)
+
+            for i in range(len(items), len(items) + 100):
+                key = f"{prefix}_{i}"
+                if key in self._dash_pump_cards:
+                    self._dash_pump_cards[key]['box'].grid_remove()
+
+            if self._dash_more_buttons[prefix] is not None:
+                self._dash_more_buttons[prefix].grid_remove()
+
+            if has_more:
+                if self._dash_more_buttons[prefix] is None:
+                    self._dash_more_buttons[prefix] = tk.Button(self._dash_cards_frame,
+                                                                text='查看更多（共' + str(len(items)) + '个）',
+                                                                font=('Microsoft YaHei', 8), bg='#0b5fa5',
+                                                                fg='#eaf6ff', bd=0,
+                                                                highlightbackground='#1e9bff', highlightthickness=1,
+                                                                command=lambda p=prefix: self._toggle_pump_expand(p))
+                else:
+                    self._dash_more_buttons[prefix].config(text='查看更多（共' + str(len(items)) + '个）')
+                self._dash_more_buttons[prefix].grid(
+                    row=start_row + 1 + show_count // 4 + (1 if show_count % 4 != 0 else 0),
+                    column=0, columnspan=4, sticky='ew', padx=10, pady=4)
+                return start_row + 1 + show_count // 4 + (2 if show_count % 4 != 0 else 1)
+            elif self._dash_pump_expanded[prefix]:
+                if self._dash_more_buttons[prefix] is None:
+                    self._dash_more_buttons[prefix] = tk.Button(self._dash_cards_frame, text='收起',
+                                                                font=('Microsoft YaHei', 8), bg='#0b5fa5',
+                                                                fg='#eaf6ff', bd=0,
+                                                                highlightbackground='#1e9bff', highlightthickness=1,
+                                                                command=lambda p=prefix: self._toggle_pump_expand(p))
+                else:
+                    self._dash_more_buttons[prefix].config(text='收起')
+                self._dash_more_buttons[prefix].grid(
+                    row=start_row + 1 + show_count // 4 + (1 if show_count % 4 != 0 else 0),
+                    column=0, columnspan=4, sticky='ew', padx=10, pady=4)
+                return start_row + 1 + show_count // 4 + (2 if show_count % 4 != 0 else 1)
+
+            return start_row + 1 + show_count // 4 + (1 if show_count % 4 != 0 else 0)
+
+        row = build_pump_section(pumps, 'P', '主泵', 0)
+
+        if self._dash_separator is not None:
+            self._dash_separator.grid_remove()
+
+        if len(pumps) > 0 or len(feed_pumps) > 0:
+            if self._dash_separator is None:
+                self._dash_separator = tk.Frame(self._dash_cards_frame, bg='#12385a', height=1)
+            self._dash_separator.grid(row=row, column=0, columnspan=4, sticky='ew', padx=10, pady=4)
+            row += 1
+
+        build_pump_section(feed_pumps, 'JP', '补水泵', row)
+
+    def _toggle_pump_expand(self, prefix):
+        self._dash_pump_expanded[prefix] = not self._dash_pump_expanded[prefix]
+        self.refresh_dashboard()
 
     def _build_event_list(self, summary, pumps, pipes):
-        for w in self.dash_event_body.winfo_children():
-            w.destroy()
+        if not hasattr(self, '_dash_event_rows'):
+            self._dash_event_rows = []
+            for w in self.dash_event_body.winfo_children():
+                w.destroy()
+
         events = []
         t = datetime.datetime.now().strftime('%H:%M:%S')
         if summary.get('fault', 0):
@@ -933,7 +1055,6 @@ class App(tk.Tk):
             if flow > 0:
                 events.append(('⚠', '母管B流量偏低', f'FT-B 流量 {flow:.2f} m³/s，低于设定值', t, self.dash_yellow))
         events.insert(0, ('●', '正常', '系统运行正常', t, self.dash_green))
-        # 追加最近操作日志，最多补足 5 条。
         try:
             rows = self.rows("""SELECT operation_time, operation_type, object_name, result, remark
                                 FROM operation_log
@@ -945,18 +1066,38 @@ class App(tk.Tk):
                 events.append(('ℹ', title, desc, ot, self.dash_blue))
         except Exception:
             pass
-        for icon, title, desc, tm, color in events[:5]:
-            row = tk.Frame(self.dash_event_body, bg='#071f3d')
-            row.pack(fill='x', padx=10, pady=4)
-            tk.Label(row, text=icon, font=('Microsoft YaHei', 11, 'bold'), bg='#071f3d', fg=color, width=3).pack(
-                side='left')
-            txt = tk.Frame(row, bg='#071f3d')
-            txt.pack(side='left', fill='x', expand=True)
-            tk.Label(txt, text=title, font=('Microsoft YaHei', 9, 'bold'), bg='#071f3d', fg=color, anchor='w').pack(
-                fill='x')
-            tk.Label(txt, text=desc, font=('Microsoft YaHei', 8), bg='#071f3d', fg='#c3d9ef', anchor='w').pack(
-                fill='x')
-            tk.Label(row, text=tm, font=('Consolas', 9), bg='#071f3d', fg='#c3d9ef').pack(side='right')
+
+        display_events = events[:5]
+
+        for i in range(len(display_events)):
+            icon, title, desc, tm, color = display_events[i]
+            if i >= len(self._dash_event_rows):
+                row = tk.Frame(self.dash_event_body, bg='#071f3d')
+                row.pack(fill='x', padx=10, pady=4)
+                icon_lbl = tk.Label(row, text=icon, font=('Microsoft YaHei', 11, 'bold'), bg='#071f3d', fg=color,
+                                    width=3)
+                icon_lbl.pack(side='left')
+                txt = tk.Frame(row, bg='#071f3d')
+                txt.pack(side='left', fill='x', expand=True)
+                title_lbl = tk.Label(txt, text=title, font=('Microsoft YaHei', 9, 'bold'), bg='#071f3d', fg=color,
+                                     anchor='w')
+                title_lbl.pack(fill='x')
+                desc_lbl = tk.Label(txt, text=desc, font=('Microsoft YaHei', 8), bg='#071f3d', fg='#c3d9ef',
+                                    anchor='w')
+                desc_lbl.pack(fill='x')
+                tm_lbl = tk.Label(row, text=tm, font=('Consolas', 9), bg='#071f3d', fg='#c3d9ef')
+                tm_lbl.pack(side='right')
+                self._dash_event_rows.append(
+                    {'row': row, 'icon': icon_lbl, 'title': title_lbl, 'desc': desc_lbl, 'tm': tm_lbl})
+            else:
+                event_row = self._dash_event_rows[i]
+                event_row['icon'].config(text=icon, fg=color)
+                event_row['title'].config(text=title, fg=color)
+                event_row['desc'].config(text=desc)
+                event_row['tm'].config(text=tm)
+
+        for i in range(len(display_events), len(self._dash_event_rows)):
+            self._dash_event_rows[i]['row'].pack_forget()
 
     def refresh_dashboard(self):
         if not hasattr(self, 'dash_container'):
