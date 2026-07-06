@@ -455,14 +455,27 @@ class App(tk.Tk):
         # 中间数字孪生
         twin_outer, twin_body = self._dash_panel(self.dash_main, '泵站数字孪生')
         twin_outer.grid(row=0, column=1, rowspan=2, sticky='nsew', padx=(0, 8), pady=(0, 8))
+        self.dash_twin_view_mode = tk.StringVar(value='plan')
         view_box = tk.Frame(twin_outer, bg='#071f3d')
         view_box.place(relx=0.78, y=13, relwidth=0.18, height=26)
-        tk.Label(view_box, text='3D视角', font=('Microsoft YaHei', 9), bg='#1d76c8', fg='#eaf6ff',
-                 padx=14).pack(side='left', fill='both')
-        tk.Label(view_box, text='平面图', font=('Microsoft YaHei', 9), bg='#12375d', fg='#9dc8f1',
-                 padx=14).pack(side='left', fill='both')
-        self.dash_twin_canvas = tk.Canvas(twin_body, bg='#06172d', highlightthickness=0)
-        self.dash_twin_canvas.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+
+        def _switch_view(mode):
+            self.dash_twin_view_mode.set(mode)
+            self._update_dash_twin_view()
+
+        btn_3d = tk.Button(view_box, text='3D视角', font=('Microsoft YaHei', 9), bg='#12375d', fg='#9dc8f1',
+                           relief='flat', command=lambda: _switch_view('3d'), padx=14)
+        btn_3d.pack(side='left', fill='both', expand=True)
+        btn_plan = tk.Button(view_box, text='平面图', font=('Microsoft YaHei', 9), bg='#1d76c8', fg='#eaf6ff',
+                             relief='flat', command=lambda: _switch_view('plan'), padx=14)
+        btn_plan.pack(side='left', fill='both', expand=True)
+        self.dash_twin_btns = {'3d': btn_3d, 'plan': btn_plan}
+        self.dash_twin_container = tk.Frame(twin_body, bg='#071f3d')
+        self.dash_twin_container.pack(fill='both', expand=True, padx=8, pady=(0, 8))
+        self.dash_twin_canvas = tk.Canvas(self.dash_twin_container, bg='#06172d', highlightthickness=0)
+        self.dash_twin_canvas.pack(fill='both', expand=True)
+        self.dash_twin_3d_frame = None
+        self.dash_browser = None
 
         # 右侧设备状态
         status_outer, status_body = self._dash_panel(self.dash_main, '设备运行状态')
@@ -543,7 +556,8 @@ class App(tk.Tk):
         head.pack_propagate(False)
         tk.Label(head, text=name, font=('Microsoft YaHei', 12, 'bold'), bg='#071f3d', fg='#e9f5ff').pack(
             side='left', padx=(84, 4), pady=6)
-        tk.Label(head, text=code, font=('Microsoft YaHei', 9), bg='#071f3d', fg='#c2ddf7').pack(side='left', pady=8)
+        code_lbl = tk.Label(head, text=code, font=('Microsoft YaHei', 9), bg='#071f3d', fg='#c2ddf7')
+        code_lbl.pack(side='left', pady=8)
         state_lbl = tk.Label(head, text='正常', font=('Microsoft YaHei', 8, 'bold'), bg='#0b6f45', fg='#72ffab',
                              padx=10)
         state_lbl.pack(side='right', padx=12, pady=7)
@@ -560,12 +574,12 @@ class App(tk.Tk):
         value_lbl.pack(side='left')
         unit_lbl = tk.Label(value_line, text=' m', font=('Microsoft YaHei', 11, 'bold'), bg='#071f3d', fg='#dceeff')
         unit_lbl.pack(side='left', pady=(9, 0))
-        tk.Label(info, text='量程：0~10.00m', font=('Microsoft YaHei', 9), bg='#071f3d', fg='#c5d9ef').pack(
-            anchor='w', pady=(4, 4))
+        range_lbl = tk.Label(info, text='量程：0~10.00m', font=('Microsoft YaHei', 9), bg='#071f3d', fg='#c5d9ef')
+        range_lbl.pack(anchor='w', pady=(4, 4))
         spark = tk.Canvas(info, height=58, bg='#071f3d', highlightthickness=0)
         spark.pack(fill='both', expand=True, pady=(2, 0))
         return {'box': box, 'state': state_lbl, 'gauge': gauge, 'value': value_lbl, 'unit': unit_lbl,
-                'spark': spark, 'color': color, 'code': code}
+                'spark': spark, 'color': color, 'code': code, 'code_lbl': code_lbl, 'range_lbl': range_lbl}
 
     def _dash_chart(self, parent, title, color='#1e9bff'):
         box = tk.Frame(parent, bg='#071f3d')
@@ -608,31 +622,67 @@ class App(tk.Tk):
 
     def _dashboard_level_values(self):
         """Return two level sensor values for the current station.
-        Values come from actual Modbus point last_value when available;
-        fallback to station current_level for display continuity.
+        Values come from instrument table current_value for level sensors.
+        Returns list of dicts with value, code, min_range, max_range.
         """
         vals = []
         try:
             sid = self.sid()
-            rows = self.rows("""SELECT point_code, point_name, last_value
-                                FROM modbus_point
+            rows = self.rows("""SELECT instrument_code, current_value, min_valid_value, max_valid_value
+                                FROM instrument
                                 WHERE station_id = ?
+                                  AND instrument_type = 'level'
                                   AND enabled = 1
-                                  AND (point_code LIKE '%LT%' OR point_name LIKE '%液位%')
                                 ORDER BY id LIMIT 2""", (sid,))
             for r in rows:
-                v = r['last_value']
+                v = r['current_value']
                 try:
-                    vals.append(float(v))
+                    val = float(v)
                 except Exception:
-                    vals.append(None)
+                    val = None
+                vals.append({
+                    'value': val,
+                    'code': r['instrument_code'] or '',
+                    'min_range': float(r['min_valid_value'] or 0),
+                    'max_range': float(r['max_valid_value'] or 10),
+                })
             if len(vals) < 2:
-                st = self.row('SELECT current_level FROM pump_station WHERE id=?', (sid,))
-                fallback = float(st['current_level'] or 0) if st else 0.0
+                rows = self.rows("""SELECT point_code, last_value
+                                    FROM modbus_point
+                                    WHERE station_id = ?
+                                      AND enabled = 1
+                                      AND (point_code LIKE '%LT%' OR point_name LIKE '%液位%')
+                                    ORDER BY id LIMIT 2""", (sid,))
+                idx = 0
+                for r in rows:
+                    if idx >= len(vals):
+                        vals.append({
+                            'value': None,
+                            'code': r['point_code'] or '',
+                            'min_range': 0,
+                            'max_range': 10,
+                        })
+                    if vals[idx]['value'] is None:
+                        v = r['last_value']
+                        try:
+                            vals[idx]['value'] = float(v)
+                        except Exception:
+                            pass
+                    if not vals[idx]['code']:
+                        vals[idx]['code'] = r['point_code'] or ''
+                    idx += 1
                 while len(vals) < 2:
-                    vals.append(fallback if len(vals) == 0 else None)
+                    vals.append({
+                        'value': None,
+                        'code': f'LT{len(vals) + 1}',
+                        'min_range': 0,
+                        'max_range': 10,
+                    })
         except Exception:
-            vals = [None, None]
+            vals = [
+                {'value': None, 'code': 'LT01', 'min_range': 0, 'max_range': 10},
+                {'value': None, 'code': 'LT02', 'min_range': 0, 'max_range': 10},
+            ]
         return vals[:2]
 
     def _dash_float(self, value, default=0.0):
@@ -790,6 +840,7 @@ class App(tk.Tk):
         c = self.dash_twin_canvas
         c.delete('all')
         c.update_idletasks()
+        
         w = max(int(c.winfo_width() or 760), 650)
         h = max(int(c.winfo_height() or 360), 300)
         c.create_rectangle(0, 0, w, h, fill='#06172d', outline='')
@@ -845,8 +896,7 @@ class App(tk.Tk):
         # 水泵
         pump_area_left = w * 0.25
         pump_area_right = w * 0.79
-        gap = (pump_area_right - pump_area_left) / 7
-
+        
         def draw_pump(x, y, code, icon, color, upper=True):
             c.create_line(x, y - 45 if upper else y - 36, x, upper_y if upper else lower_y,
                           fill='#8bc6e8' if upper else '#85f0a9', width=5)
@@ -856,22 +906,176 @@ class App(tk.Tk):
             c.create_text(x, y + 45, text=code, fill='#eaf6ff', font=('Consolas', 10, 'bold'))
             c.create_text(x, y + 24, text=icon, fill=color, font=('Microsoft YaHei', 13, 'bold'))
 
-        for i in range(8):
-            p = pumps[i] if i < len(pumps) else None
-            icon, color, text = self._dash_pump_state(p, standby=True)
-            code = self._dash_pump_code(p, 'P', i + 1)
-            draw_pump(pump_area_left + i * gap, h * 0.50, code, icon, color, upper=True)
+        pump_count = len(pumps)
+        if pump_count > 0:
+            pump_gap = (pump_area_right - pump_area_left) / max(pump_count - 1, 1)
+            for i in range(pump_count):
+                p = pumps[i]
+                icon, color, text = self._dash_pump_state(p, standby=True)
+                code = self._dash_pump_code(p, 'P', i + 1)
+                draw_pump(pump_area_left + i * pump_gap, h * 0.50, code, icon, color, upper=True)
+        else:
+            c.create_text(w * 0.51, h * 0.52, text='暂无主泵', fill='#8a929c', font=('Microsoft YaHei', 11, 'bold'))
+        
         c.create_text(w * 0.51, h * 0.58, text='母管（B路）', fill='#e6f4ff', font=('Microsoft YaHei', 10, 'bold'))
-        for i in range(8):
-            p = feed_pumps[i] if i < len(feed_pumps) else None
-            icon, color, text = self._dash_pump_state(p, standby=True)
-            code = self._dash_pump_code(p, 'JP', i + 1)
-            draw_pump(pump_area_left - 45 + i * gap, h * 0.79, code, icon, color, upper=False)
+        
+        feed_count = len(feed_pumps)
+        if feed_count > 0:
+            feed_gap = (pump_area_right - pump_area_left) / max(feed_count - 1, 1)
+            for i in range(feed_count):
+                p = feed_pumps[i]
+                icon, color, text = self._dash_pump_state(p, standby=True)
+                code = self._dash_pump_code(p, 'JP', i + 1)
+                draw_pump(pump_area_left - 45 + i * feed_gap, h * 0.79, code, icon, color, upper=False)
+        else:
+            c.create_text(w * 0.51, h * 0.82, text='暂无补水泵', fill='#8a929c', font=('Microsoft YaHei', 11, 'bold'))
         # 光效
         for x in range(int(left_x), int(right_x), 42):
             c.create_oval(x - 3, upper_y - 3, x + 3, upper_y + 3, fill='#7be6ff', outline='')
         for x in range(int(left_x * 0.82), int(right_x), 42):
             c.create_oval(x - 3, lower_y - 3, x + 3, lower_y + 3, fill='#7cff9f', outline='')
+
+    def _update_dash_twin_view(self):
+        mode = self.dash_twin_view_mode.get()
+        for btn_mode, btn in self.dash_twin_btns.items():
+            if btn_mode == mode:
+                btn.config(bg='#1d76c8', fg='#eaf6ff')
+            else:
+                btn.config(bg='#12375d', fg='#9dc8f1')
+
+        if mode == '3d':
+            self.dash_twin_canvas.pack_forget()
+            if self.dash_twin_3d_frame is None:
+                self.dash_twin_3d_frame = tk.Frame(self.dash_twin_container, bg='#06172d')
+                self.dash_twin_3d_frame.pack(fill='both', expand=True)
+            if not self._prepare_dash_twin_3d():
+                self.dash_twin_canvas.pack(fill='both', expand=True)
+                self.dash_twin_view_mode.set('plan')
+                for btn_mode, btn in self.dash_twin_btns.items():
+                    if btn_mode == 'plan':
+                        btn.config(bg='#1d76c8', fg='#eaf6ff')
+                    else:
+                        btn.config(bg='#12375d', fg='#9dc8f1')
+        else:
+            if self.dash_twin_3d_frame:
+                for child in self.dash_twin_3d_frame.winfo_children():
+                    try:
+                        child.destroy()
+                    except Exception:
+                        pass
+                self.dash_twin_3d_frame.pack_forget()
+            self.dash_twin_canvas.pack(fill='both', expand=True)
+
+    def _prepare_dash_twin_3d(self):
+        import shutil
+        path = (self.twin_model_path.get() or '').strip()
+        if not path or not os.path.exists(path):
+            return False
+        try:
+            viewer_dir = os.path.join(BASE_DIR, 'twin_viewer')
+            model_dir = os.path.join(viewer_dir, 'models')
+            os.makedirs(model_dir, exist_ok=True)
+            ext = os.path.splitext(path)[1].lower() or '.glb'
+            sid = self.twin_sid() or self.sid()
+            st = self.row('SELECT station_code FROM pump_station WHERE id=?', (sid,)) if sid else None
+            code = (st['station_code'] if st else 'STATION') or 'STATION'
+            target_name = f'{code}_model{ext}'
+            target = os.path.join(model_dir, target_name)
+            try:
+                if os.path.abspath(path) != os.path.abspath(target):
+                    shutil.copy2(path, target)
+            except Exception:
+                target = path
+                target_name = os.path.basename(path)
+
+            template_dir = os.path.join(BASE_DIR, 'templates')
+            dash_tmpl = os.path.join(template_dir, 'twin_viewer_dash3d.html')
+            if not os.path.exists(dash_tmpl):
+                return False
+
+            with open(dash_tmpl, 'r', encoding='utf-8') as f:
+                html_text = f.read()
+            html_text = html_text.replace('__MODEL__', f'/models/{target_name}')
+            html_path = os.path.join(viewer_dir, 'dash_twin_3d.html')
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(html_text)
+
+            self._write_twin_state_json(sid)
+            if not self._start_twin_http_server():
+                return False
+
+            url = f'http://127.0.0.1:{self.twin_http_port}/dash_twin_3d.html?ts={int(time.time())}'
+            
+            for child in self.dash_twin_3d_frame.winfo_children():
+                try:
+                    child.destroy()
+                except Exception:
+                    pass
+            
+            try:
+                from tkwebview2.tkwebview2 import WebView2
+                w = WebView2(self.dash_twin_3d_frame, 900, 600, url=url)
+                w.pack(fill='both', expand=True)
+                w.load_url(url)
+                self.dash_twin_embedded_widget = w
+                return True
+            except Exception as e1:
+                print(f'tkwebview2 failed: {e1}')
+                try:
+                    from cefpython3 import cefpython as cef
+                    if not getattr(self, '_cef_initialized', False):
+                        cef.Initialize(settings={
+                            "windowless_rendering_enabled": False,
+                            "log_severity": cef.LOGSEVERITY_INFO,
+                        })
+                        self._cef_initialized = True
+                    self.update()
+                    hwnd = self.dash_twin_3d_frame.winfo_id()
+                    width = self.dash_twin_3d_frame.winfo_width()
+                    height = self.dash_twin_3d_frame.winfo_height()
+                    if width < 10 or height < 10:
+                        width, height = 600, 400
+                    rect = [0, 0, width, height]
+                    window_info = cef.WindowInfo()
+                    window_info.SetAsChild(hwnd, rect)
+                    self.dash_twin_embedded_widget = cef.CreateBrowserSync(window_info, url=url)
+                    
+                    if not getattr(self, '_cef_loop_running', False):
+                        self._cef_loop_running = True
+                        
+                        def cef_loop():
+                            try:
+                                cef.MessageLoopWork()
+                            except Exception:
+                                pass
+                            if (hasattr(self, 'browser') and self.browser) or (hasattr(self, 'dash_twin_embedded_widget') and self.dash_twin_embedded_widget):
+                                self.after(10, cef_loop)
+                            else:
+                                self._cef_loop_running = False
+                        
+                        self.after(10, cef_loop)
+                    
+                    def _resize_dash_browser(event=None):
+                        if not getattr(self, "dash_twin_embedded_widget", None):
+                            return
+                        w = self.dash_twin_3d_frame.winfo_width()
+                        h = self.dash_twin_3d_frame.winfo_height()
+                        if w < 10 or h < 10:
+                            return
+                        try:
+                            self.dash_twin_embedded_widget.SetBounds(0, 0, w, h)
+                        except Exception:
+                            pass
+                    
+                    self.dash_twin_3d_frame.bind('<Configure>', _resize_dash_browser)
+                    self.after(100, _resize_dash_browser)
+                    return True
+                except Exception as e2:
+                    print(f'cefpython3 failed: {e2}')
+                    return False
+        except Exception as e:
+            print(f'_prepare_dash_twin_3d error: {e}')
+            return False
 
     def _build_status_cards(self, pumps, feed_pumps):
         if not hasattr(self, '_dash_pump_cards'):
@@ -1127,15 +1331,26 @@ class App(tk.Tk):
         self._dash_update_kpi('day_flow', f"{self._dash_float(s.get('day_flow')):,.0f}", 'm³', self.dash_blue)
         self._dash_update_kpi('day_energy', f"{self._dash_float(s.get('day_energy')):,.0f}", 'kWh', self.dash_blue)
 
-        lv1, lv2 = self._dashboard_level_values()
-        for key, value, color in [('lt1', lv1, self.dash_green), ('lt2', lv2, self.dash_blue)]:
+        levels = self._dashboard_level_values()
+        for key, level_data, color in [('lt1', levels[0], self.dash_green), ('lt2', levels[1], self.dash_blue)]:
             panel = self.dash_levels[key]
+            value = level_data.get('value')
             if value is None:
                 panel['value'].config(text='-')
                 v = 0.0
             else:
                 v = self._dash_float(value)
                 panel['value'].config(text=f'{v:.2f}')
+            
+            panel['unit'].config(text=' m')
+
+            if level_data.get('code'):
+                panel['code_lbl'].config(text=level_data['code'])
+            
+            min_r = level_data.get('min_range', 0)
+            max_r = level_data.get('max_range', 10)
+            panel['range_lbl'].config(text=f'量程：{min_r:.0f}~{max_r:.2f}m')
+            
             self._draw_level_gauge(panel, v, color)
             self._draw_sparkline(panel['spark'], v, color)
 
@@ -1154,7 +1369,14 @@ class App(tk.Tk):
                     self.rows("SELECT * FROM main_pipe WHERE station_id=? ORDER BY display_order,id", (sid,)))
             except Exception:
                 pumps, feed_pumps, pipes = [], [], []
-        self._draw_dashboard_twin(pumps, feed_pumps, pipes, lv1 or 0, lv2 or 0)
+        try:
+            self._write_twin_state_json(sid)
+        except Exception:
+            pass
+        if getattr(self, 'dash_twin_view_mode', None) and self.dash_twin_view_mode.get() == 'plan':
+            lv1_val = levels[0].get('value') if len(levels) > 0 else None
+            lv2_val = levels[1].get('value') if len(levels) > 1 else None
+            self._draw_dashboard_twin(pumps, feed_pumps, pipes, lv1_val or 0, lv2_val or 0)
         self._build_status_cards(pumps, feed_pumps)
 
         total_flow = self._dash_float(s.get('total_flow'))
@@ -1162,9 +1384,11 @@ class App(tk.Tk):
         day_energy = self._dash_float(s.get('day_energy'))
         press1 = self._dash_float(self.safe_get(pipes[0], 'pressure', 0.6) if pipes else 0.6)
         press2 = self._dash_float(self.safe_get(pipes[1], 'pressure', 0.5) if len(pipes) > 1 else press1 * 0.9)
+        lv1_val = levels[0].get('value') if len(levels) > 0 else None
+        lv2_val = levels[1].get('value') if len(levels) > 1 else None
         self._draw_dash_chart(self.dash_charts['level'],
-                              [self._dash_series(lv1 or 0.1, spread=0.10),
-                               self._dash_series(lv2 or 0.1, spread=0.12)],
+                              [self._dash_series(lv1_val or 0.1, spread=0.10),
+                               self._dash_series(lv2_val or 0.1, spread=0.12)],
                               ymax=6, labels=['LT01', 'LT02'])
         self._draw_dash_chart(self.dash_charts['flow'],
                               [self._dash_series(total_flow or 1, spread=0.16),
