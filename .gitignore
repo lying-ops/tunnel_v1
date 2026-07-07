@@ -23,3 +23,10 @@ sample_models/
 
 *.png
 *.csv
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+test.py
