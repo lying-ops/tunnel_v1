@@ -694,9 +694,6 @@ class App(tk.Tk):
             return default
 
     def _dash_update_kpi(self, key, value, unit='', color=None):
-        """
-        更新KPI数值
-        """
         item = getattr(self, 'dash_kpis', {}).get(key)
         if not item:
             return
@@ -722,9 +719,6 @@ class App(tk.Tk):
             return f'{prefix}{index}'
 
     def _draw_level_gauge(self, panel, value, color):
-        """
-        绘制液位量杯
-        """
         c = panel['gauge']
         c.delete('all')
         c.update_idletasks()
@@ -778,14 +772,6 @@ class App(tk.Tk):
         canvas.create_text(w - right, h - 4, text='10:24', fill='#9abde0', font=('Consolas', 7), anchor='se')
 
     def _draw_dash_chart(self, chart, series_list, ymax=None, labels=None):
-        """
-        折线图
-        chart: 对应的图表
-        series_list：数值列表
-        ymax：最值
-        labels：折线图的线表示
-        """
-        # 绘制首页图表
         canvas = chart['canvas']
         canvas.delete('all')
         canvas.update_idletasks()
@@ -1334,7 +1320,6 @@ class App(tk.Tk):
         else:
             self.dash_station_lbl.config(text='暂无泵站')
 
-        # 更新KPI数值
         self._dash_update_kpi('running', s.get('running', 0), '台', self.dash_green)
         self._dash_update_kpi('standby', s.get('standby', 0), '台', self.dash_blue)
         self._dash_update_kpi('fault', s.get('fault', 0), '台', self.dash_red)
@@ -1347,7 +1332,6 @@ class App(tk.Tk):
         self._dash_update_kpi('day_flow', f"{self._dash_float(s.get('day_flow')):,.0f}", 'm³', self.dash_blue)
         self._dash_update_kpi('day_energy', f"{self._dash_float(s.get('day_energy')):,.0f}", 'kWh', self.dash_blue)
 
-        # 更新液位数值
         levels = self._dashboard_level_values()
         for key, level_data, color in [('lt1', levels[0], self.dash_green), ('lt2', levels[1], self.dash_blue)]:
             panel = self.dash_levels[key]
@@ -1364,7 +1348,6 @@ class App(tk.Tk):
             if level_data.get('code'):
                 panel['code_lbl'].config(text=level_data['code'])
 
-            # 首页在这里修改量程
             min_r = level_data.get('min_range', 0)
             max_r = level_data.get('max_range', 10)
             panel['range_lbl'].config(text=f'量程：{min_r:.0f}~{max_r:.2f}m')
@@ -1400,30 +1383,24 @@ class App(tk.Tk):
         total_flow = self._dash_float(s.get('total_flow'))
         total_power = self._dash_float(s.get('total_power')) / 1000.0
         day_energy = self._dash_float(s.get('day_energy'))
-        # TODO 压力值不确定使用哪里的值
         press1 = self._dash_float(self.safe_get(pipes[0], 'pressure', 0.6) if pipes else 0.6)
         press2 = self._dash_float(self.safe_get(pipes[1], 'pressure', 0.5) if len(pipes) > 1 else press1 * 0.9)
         lv1_val = levels[0].get('value') if len(levels) > 0 else None
         lv2_val = levels[1].get('value') if len(levels) > 1 else None
-        # 液位变化折线图
         self._draw_dash_chart(self.dash_charts['level'],
                               [self._dash_series(lv1_val or 0.1, spread=0.10),
                                self._dash_series(lv2_val or 0.1, spread=0.12)],
                               ymax=6, labels=['LT01', 'LT02'])
-        # 流量变化折线图
         self._draw_dash_chart(self.dash_charts['flow'],
                               [self._dash_series(total_flow or 1, spread=0.16),
                                self._dash_series((total_flow or 1) * 0.48, spread=0.18)],
                               ymax=max(total_flow * 1.5, 30), labels=['FT-A', 'FT-B'])
-        # 压力变化折线图
         self._draw_dash_chart(self.dash_charts['pressure'],
                               [self._dash_series(press1, spread=0.12), self._dash_series(press2, spread=0.12)],
                               ymax=max(press1, press2, 1.5), labels=['PT-A', 'PT-B'])
-        # 总功率折线图
         self._draw_dash_chart(self.dash_charts['power'],
                               [self._dash_series(total_power or 0.1, spread=0.18, trend=0.15)],
                               ymax=max(total_power * 1.6, 15), labels=['总功率'])
-        # 累计电量折线图
         energy_line = [max(day_energy, 1) * (i + 1) / 32 for i in range(32)]
         self._draw_dash_chart(self.dash_charts['energy'], [energy_line], ymax=max(day_energy * 1.2, 60000),
                               labels=['累计电量'])
@@ -2629,9 +2606,6 @@ class App(tk.Tk):
         self.refresh_owner_target_options()
 
     def on_inst_select(self, e=None):
-        """
-        仪表管理下拉框
-        """
         sel = self.inst_tree.selection()
         if not sel: return
         iid = int(sel[0]);
@@ -2644,7 +2618,7 @@ class App(tk.Tk):
             try:
                 w.set(str(v))
             except Exception:
-                w.delete(0, 'end')
+                w.delete(0, 'end');
                 w.insert(0, str(v))
         self.refresh_owner_target_options()
         ot = r['owner_type'] or self.default_owner_type_for_inst(r['instrument_type'])
@@ -3451,313 +3425,88 @@ class App(tk.Tk):
     # Parameter configuration page
     def build_config_page(self):
         f = self.pages['参数配置']
-        for child in f.winfo_children():
-            child.destroy()
-        main_frame = tk.Frame(f, bg='#06172d')
-        main_frame.pack(fill='both', expand=True)
+        top = tk.Frame(f, bg='#f3f6fb')
+        top.pack(fill='x', padx=10, pady=(8, 4))
+        tk.Label(top, text='⚙ 参数配置中心', font=('Microsoft YaHei', 15, 'bold'), bg='#f3f6fb', fg='#17365d').pack(
+            side='left', padx=(8, 18), pady=8)
+        self.config_station_label = ttk.Label(top, text='当前泵站：-', font=('Microsoft YaHei', 10, 'bold'),
+                                              foreground='#005bbb')
+        self.config_station_label.pack(side='left')
 
-        top_bar = tk.Frame(main_frame, bg='#071f3d')
-        top_bar.pack(fill='x', padx=10, pady=(6, 4))
-        top_bar.pack_propagate(False)
-        top_bar.configure(height=48)
+        sw = tk.Frame(f, bg='#f8f9fb')
+        sw.pack(fill='x', padx=10, pady=4)
+        tk.Label(sw, text='🏭 参数泵站', font=('Microsoft YaHei', 10, 'bold'), bg='#f8f9fb').pack(side='left', padx=8)
+        self.config_station = ttk.Combobox(sw, width=38, state='readonly')
+        self.config_station.pack(side='left', padx=5)
+        ttk.Button(sw, text='切换到该泵站', command=self.config_switch_station).pack(side='left', padx=5)
 
-        left_top = tk.Frame(top_bar, bg='#071f3d')
-        left_top.pack(side='left', padx=10, pady=6)
-        tk.Label(left_top, text='当前泵站：', font=('Microsoft YaHei', 11, 'bold'), bg='#071f3d', fg='#8bc5ff').pack(
-            side='left', padx=(0, 6))
-        self.config_station = ttk.Combobox(left_top, width=28, state='readonly')
-        self.config_station.pack(side='left')
-        self.config_station.bind("<<ComboboxSelected>>", self.config_switch_station)
-        self.config_station.bind("<<ComboboxSelected>>", self.refresh_config_params, add="+")
-
-        right_top = tk.Frame(top_bar, bg='#071f3d')
-        right_top.pack(side='right', padx=10, pady=6)
-
-        def _btn(text, bg, fg, cmd):
-            return tk.Button(right_top, text=text, font=('Microsoft YaHei', 10, 'bold'),
-                             bg=bg, fg=fg, relief='flat', padx=16, pady=4, command=cmd)
-
-        _btn('恢复默认', '#1a456b', '#8bc5ff', self.config_restore_default).pack(side='right', padx=4)
-        _btn('应用到设备', '#1a456b', '#8bc5ff', self.config_apply_to_device).pack(side='right', padx=4)
-        _btn('保存参数', '#06b447', '#ffffff', self.config_save_all).pack(side='right', padx=4)
-
-        body = tk.Frame(main_frame, bg='#06172d')
-        body.pack(fill='both', expand=True, padx=10, pady=4)
-
-        tabs = tk.Frame(body, bg='#071f3d')
-        tabs.pack(fill='x', padx=10, pady=(4, 0))
-
-        self.config_tab_btns = {}
-        tab_names = [('level_control', '自动平衡控制', '⚙'), ('level_select', '液位计二选一', '📏'),
-                     ('manual_control', '启停延时', '⏲'), ('current_check', '电流判断', '⚡')]
-        for idx, (group, name, icon) in enumerate(tab_names):
-            btn = tk.Button(tabs, text=f'{icon} {name}', font=('Microsoft YaHei', 10),
-                            bg='#071f3d' if idx == 0 else '#0a2a4a', fg='#eaf6ff' if idx == 0 else '#8bc5ff',
-                            relief='flat', padx=18, pady=6,
-                            command=lambda g=group: self.config_switch_tab(g))
-            btn.pack(side='left', padx=2)
-            self.config_tab_btns[group] = btn
-            if idx == 0:
-                self.config_current_tab = group
-
-        content = tk.Frame(body, bg='#06172d')
-        content.pack(fill='both', expand=True, padx=10, pady=4)
-
-        left_panel = tk.Frame(content, bg='#071f3d', highlightbackground='#0b5fa5', highlightthickness=1)
-        left_panel.pack(side='left', fill='both', expand=True, padx=(0, 8))
-
-        right_panel = tk.Frame(content, bg='#071f3d', highlightbackground='#0b5fa5', highlightthickness=1, width=350)
-        right_panel.pack(side='right', fill='y')
-        right_panel.pack_propagate(False)
-
-        self.config_summary_frame = tk.Frame(right_panel, bg='#071f3d')
-        self.config_summary_frame.pack(fill='both', expand=True, padx=10, pady=10)
-
-        self.config_params_frame = tk.Frame(left_panel, bg='#071f3d')
-        self.config_params_frame.pack(fill='both', expand=True, padx=10, pady=10)
-
+        nb = ttk.Notebook(f)
+        nb.pack(fill='both', expand=True, padx=10, pady=6)
         self.config_vars = {}
-        self._build_config_params('level_control')
-
-    def _build_config_params(self, group):
-        for child in self.config_params_frame.winfo_children():
-            child.destroy()
-        for child in self.config_summary_frame.winfo_children():
-            child.destroy()
-
-        params_def = {
-            'level_control': {
-                'title': '液位控制参数',
-                'params': [
-                    ('level_min', '最低保护液位', 'm', '#067eb4', '#58ff9d', '0.00', '2.00', 'shield'),
-                    ('target_level', '目标控制液位', 'm', '#0066cc', '#25e0ff', '0.00', '5.00', 'target'),
-                    ('level_high', '高液位', 'm', '#d4a806', '#ffd93d', '0.00', '5.00', 'high'),
-                    ('level_high_high', '超高液位', 'm', '#cc3333', '#ff6b6b', '0.00', '6.00', 'alarm'),
-                    ('rise_rate_trigger', '上升触发速率', 'm/min', '#06b447', '#58ff9d', '0.01', '1.00', 'trend_up'),
-                    ('fall_rate_trigger', '下降触发速率', 'm/min', '#0066cc', '#25e0ff', '0.01', '1.00', 'trend_down'),
-                    ('freq_min', '最低频率', 'Hz', '#9933cc', '#e8e8e8', '10.0', '30.0', 'wave'),
-                    ('freq_economic', '经济频率', 'Hz', '#00cc99', '#58ffc9', '20.0', '40.0', 'wave'),
-                    ('freq_normal', '正常频率', 'Hz', '#0066cc', '#25e0ff', '30.0', '60.0', 'wave'),
-                    ('freq_high', '高频率', 'Hz', '#d4a806', '#ffd93d', '40.0', '80.0', 'wave'),
-                    # TODO 无对应参数
-                    ('feed_start_delay_seconds', '给水泵启动延时', 's', '#00cc99', '#58ffc9', '0', '60', 'clock'),
-                    ('start_delay_seconds', '主泵启动延时', 's', '#0066cc', '#25e0ff', '0', '120', 'clock'),
-                    ('feed_stop_delay_seconds', '给水泵停止延时', 's', '#cc3333', '#e8e8e8', '0', '120', 'clock'),
-                ],
-                'summary': [
-                    ('液位控制策略', [
-                        ('液位 ≥ 超高液位：全部主泵高速运行，直至液位回落', '#ff6b6b'),
-                        ('液位 ≥ 高液位：增加主泵运行，提升频率', '#ffd93d'),
-                        ('液位 ≥ 高液位：增加运行泵组，提升频率', '#ffd93d'),
-                        ('液位 ≥ 目标控制液位：维持当前运行组合，自动平衡', '#25e0ff'),
-                        ('液位 < 目标控制液位：降低频率或减少泵组', '#58ff9d'),
-                        ('液位 ≤ 最低保护液位：停止主泵，进入保护状态', '#8bc5ff'),
-                    ]),
-                    ('频率分级策略', [
-                        ('最低频率：维持最低运行频率，防止停机', '#c98cff'),
-                        ('经济频率：节能运行频率区间', '#58ffc9'),
-                        ('正常频率：常规工况运行频率', '#25e0ff'),
-                        ('高频率：应对高液位工况，快速排水', '#ffd93d'),
-                    ]),
-                    ('延时保护策略', [
-                        ('给水泵启动延时：防止频繁启动', '#58ffc9'),
-                        ('主泵启动延时：避免水锤冲击', '#25e0ff'),
-                        ('给水泵停止延时：排尽管路残水', '#ff6b6b'),
-                    ])
-                ]
-            },
-            'level_select': {
-                'title': '液位计二选一参数',
-                'params': [
-                    ('level_select_mode', '选择方式', '', '#0066cc', '#25e0ff', '', '', 'switch'),
-                    ('primary_level_instrument_code', '主用液位计编号', '', '#06b447', '#58ff9d', '', '', 'tag'),
-                    ('backup_level_instrument_code', '备用液位计编号', '', '#9933cc', '#c98cff', '', '', 'tag'),
-                    ('level_diff_alarm_m', '双液位偏差报警值', 'm', '#cc3333', '#ff6b6b', '0.00', '1.00', 'alert'),
-                ],
-                'summary': [
-                    ('液位计选择策略', [
-                        ('主用优先：优先使用主用液位计数据', '#58ff9d'),
-                        ('备用优先：优先使用备用液位计数据', '#c98cff'),
-                        ('平均：取两个液位计平均值', '#25e0ff'),
-                        ('自动切换：主用异常时自动切换到备用', '#ffd93d'),
-                    ]),
-                    ('偏差报警', [
-                        ('双液位偏差超过设定值时触发报警', '#ff6b6b'),
-                    ]),
-                ]
-            },
-            'manual_control': {
-                'title': '启停延时参数',
-                'params': [
-                    ('feed_start_delay_seconds', '给水泵启动延时', 's', '#00cc99', '#58ffc9', '0', '60', 'clock'),
-                    ('feed_stop_delay_seconds', '给水泵停止延时', 's', '#cc3333', '#ff6b6b', '0', '60', 'clock'),
-                    ('start_feedback_timeout_seconds', '启动反馈超时', 's', '#d4a806', '#ffd93d', '0', '120', 'alert'),
-                    ('stop_feedback_timeout_seconds', '停止反馈超时', 's', '#d4a806', '#ffd93d', '0', '120', 'alert'),
-                ],
-                'summary': [
-                    ('延时保护说明', [
-                        ('给水泵启动延时：离心泵启动前预运行', '#58ffc9'),
-                        ('给水泵停止延时：离心泵启动后继续运行', '#ff6b6b'),
-                        ('启动反馈超时：判定启动失败的时间阈值', '#ffd93d'),
-                        ('停止反馈超时：判定停止失败的时间阈值', '#ffd93d'),
-                    ]),
-                ]
-            },
-            'current_check': {
-                'title': '电流判断参数',
-                'params': [
-                    ('current_low_value', '电流低值', 'A', '#cc3333', '#ff6b6b', '0', '100', 'alert'),
-                    ('current_high_value', '电流高值', 'A', '#d4a806', '#ffd93d', '0', '200', 'alert'),
-                    ('current_check_delay_seconds', '电流判断延时', 's', '#0066cc', '#25e0ff', '0', '60', 'clock'),
-                ],
-                'summary': [
-                    ('电流保护策略', [
-                        ('电流低于低值：可能存在空转或故障', '#ff6b6b'),
-                        ('电流高于高值：可能存在过载或卡阻', '#ffd93d'),
-                        ('判断延时：避免瞬时电流波动误判', '#25e0ff'),
-                    ]),
-                ]
-            },
-        }
-        config = params_def.get(group, params_def['level_control'])
-
-        tk.Label(self.config_params_frame, text=config['title'], font=('Microsoft YaHei', 12, 'bold'),
-                 bg='#071f3d', fg='#eaf6ff').pack(anchor='w', pady=(0, 8))
-
-        grid = tk.Frame(self.config_params_frame, bg='#071f3d')
-        grid.pack(fill='both', expand=True)
-
-        self.config_vars[group] = {}
-        for i, (code, name, unit, icon_bg, val_color, min_r, max_r, icon_type) in enumerate(config['params']):
-            r = i // 4
-            c = i % 4
-            card = tk.Frame(grid, bg='#1a3a5c', highlightbackground='#0b5fa5', highlightthickness=1)
-            card.grid(row=r, column=c, sticky='nsew', padx=6, pady=6)
-            grid.grid_columnconfigure(c, weight=1)
-
-            icon_map = {
-                'shield': '🌊', 'target': '🎯', 'high': '⚠', 'alarm': '🚨',
-                'trend_up': '📈', 'trend_down': '📉', 'wave': '🌊', 'clock': '⏱',
-                'switch': '🔄', 'tag': '🏷', 'alert': '🔔'
-            }
-            icon = icon_map.get(icon_type, '⚙')
-
-            body = tk.Frame(card, bg='#1a3a5c')
-            body.pack(fill='both', expand=True, padx=10, pady=10)
-
-            name_frame = tk.Frame(body, bg='#1a3a5c')
-            name_frame.pack(anchor='w', pady=(0, 6))
-            icon_circle = tk.Label(name_frame, text=icon, font=('Microsoft YaHei', 12), bg=icon_bg, fg='white')
-            icon_circle.pack(side='left', padx=(0, 6))
-            icon_circle.config(width=2, height=1)
-            (tk.Label(name_frame, text=name, font=('Microsoft YaHei', 10, 'bold'), bg='#1a3a5c', fg='#eaf6ff')
-            .pack(side='left'))
-
-            val_frame = tk.Frame(body, bg='#1a3a5c')
-            val_frame.pack(anchor='w')
-            
-            if icon_type == 'switch':
-                combo = ttk.Combobox(val_frame, width=14, state='readonly', font=('Microsoft YaHei', 12))
-                combo['values'] = ('主用优先', '备用优先', '平均', '自动切换')
-                combo.set("主用优先")
-                combo.pack(side='left')
-                e = combo
-
-            else:
-                e = tk.Entry(val_frame, width=12, font=('Consolas', 14, 'bold'), bg='#0a2a4a', fg=val_color,
-                             insertbackground='white', highlightthickness=0, relief='flat')
+        groups = [
+            ('level_control', '🌊 液位自动控制', [
+                ('level_high_high', '超高液位：开启全部备用水泵', 'm'),
+                ('target_level', '控制液位', 'm'),
+                ('upper_level', '上限液位：加泵，运行台数控制在总数60%', 'm'),
+                ('lower_level', '下限液位：减泵，运行台数控制在总数30%', 'm'),
+                ('control_deadband', '控制死区：范围内不调节', 'm'),
+                ('rise_rate_trigger', '上涨速率', 'm/min'),
+                ('fall_rate_trigger', '下降速率', 'm/min'),
+                ('freq_min', '最低频率', 'Hz'),
+                ('freq_normal', '正常频率', 'Hz'),
+                ('freq_max', '最高运行频率', 'Hz'),
+                ('freq_step', '频率调整步长', 'Hz'),
+                ('freq_adjust_interval_seconds', '调节刷新周期', 's'),
+                ('add_pump_min_interval_seconds', '加泵最小间隔', 's'),
+                ('reduce_pump_min_interval_seconds', '减泵最小间隔', 's')]),
+            ('level_select', '📏 液位计二选一', [
+                ('level_select_mode', '选择方式：主用优先/备用优先/平均/自动切换', ''),
+                ('primary_level_instrument_code', '主用液位计编号', ''),
+                ('backup_level_instrument_code', '备用液位计编号', ''),
+                ('level_diff_alarm_m', '双液位偏差报警值', 'm')]),
+            ('manual_control', '⏲ 启停延时', [
+                ('feed_start_delay_seconds', '离心泵启动前给水泵预运行延时', 's'),
+                ('feed_stop_delay_seconds', '离心泵启动后给水泵停止延时', 's'),
+                ('start_feedback_timeout_seconds', '启动反馈超时判定', 's'),
+                ('stop_feedback_timeout_seconds', '停止反馈超时判定', 's')]),
+            ('current_check', '⚡ 电流判断', [
+                ('current_low_value', '电流低值', 'A'), ('current_high_value', '电流高值', 'A'),
+                ('current_check_delay_seconds', '电流判断延时', 's')]),
+        ]
+        for group, title, items in groups:
+            page = tk.Frame(nb, bg='#eef2f7')
+            nb.add(page, text=title)
+            self.config_vars[group] = {}
+            desc = tk.Frame(page, bg='#eef2f7')
+            desc.pack(fill='x', padx=10, pady=(10, 4))
+            tk.Label(desc, text=title, font=('Microsoft YaHei', 13, 'bold'), bg='#eef2f7', fg='#17365d').pack(
+                side='left')
+            grid = tk.Frame(page, bg='#eef2f7')
+            grid.pack(fill='both', expand=True, padx=10, pady=4)
+            for i, (code, name, unit) in enumerate(items):
+                r = i // 3;
+                c = i % 3
+                card = tk.Frame(grid, bg='white', highlightbackground='#d8e0ea', highlightthickness=1)
+                card.grid(row=r, column=c, sticky='nsew', padx=8, pady=8)
+                grid.grid_columnconfigure(c, weight=1)
+                tk.Label(card, text=f"{self._param_icon(code, group)} {name}", font=('Microsoft YaHei', 10, 'bold'),
+                         bg='white', fg='#1f3b5f').pack(anchor='w', padx=10, pady=(8, 3))
+                line = tk.Frame(card, bg='white');
+                line.pack(fill='x', padx=10, pady=(2, 8))
+                e = ttk.Entry(line, width=16);
                 e.pack(side='left')
-                if unit:
-                    (tk.Label(val_frame, text=f' {unit}', font=('Microsoft YaHei', 11), bg='#1a3a5c', fg='#8bc5ff')
-                    .pack(side='left', pady=(4, 0)))
+                tk.Label(line, text=unit, font=('Microsoft YaHei', 9), bg='white', fg='#566573').pack(side='left',
+                                                                                                      padx=6)
+                tk.Label(card, text=code, font=('Consolas', 8), bg='white', fg='#9aa3ad').pack(anchor='w', padx=10,
+                                                                                               pady=(0, 8))
+                self.config_vars[group][code] = e
+            btnbar = tk.Frame(page, bg='#eef2f7')
+            btnbar.pack(fill='x', padx=18, pady=10)
+            tk.Button(btnbar, text='💾 保存本页参数', font=('Microsoft YaHei', 10, 'bold'), bg='#0b63ce', fg='white',
+                      relief='flat', padx=14, pady=6, command=lambda g=group: self.save_config_group(g)).pack(
+                side='left')
 
-            if min_r and max_r:
-                tk.Label(body, text=f'范围：{min_r} ~ {max_r}', font=('Microsoft YaHei', 9), bg='#1a3a5c',
-                         fg='#5a7a9a').pack(anchor='w', pady=(4, 0))
-
-            self.config_vars[group][code] = e
-
-        for section_title, items in config['summary']:
-            sect = tk.Frame(self.config_summary_frame, bg='#071f3d')
-            sect.pack(fill='x', pady=(8, 4))
-            tk.Label(sect, text=f'◆ {section_title}', font=('Microsoft YaHei', 10, 'bold'),
-                     bg='#071f3d', fg='#eaf6ff').pack(anchor='w')
-            for text, color in items:
-                line = tk.Frame(sect, bg='#071f3d')
-                line.pack(anchor='w', padx=12, pady=(2, 0))
-                tk.Label(line, text='●', font=('Microsoft YaHei', 8), bg='#071f3d', fg=color).pack(side='left')
-                tk.Label(line, text=text, font=('Microsoft YaHei', 9), bg='#071f3d', fg='#dceeff').pack(side='left',
-                                                                                                        padx=4)
-
-        self.refresh_config_params()
-
-    def config_switch_tab(self, group):
-        self.config_current_tab = group
-        for child in self.config_params_frame.winfo_children():
-            child.destroy()
-        for child in self.config_summary_frame.winfo_children():
-            child.destroy()
-        for tab_group, btn in self.config_tab_btns.items():
-            if tab_group == group:
-                btn.config(bg='#1a456b', fg='#eaf6ff')
-                # btn.config(bg='#071f3d', fg='#eaf6ff')
-            else:
-                btn.config(bg='#0a2a4a', fg='#8bc5ff')
-        self._build_config_params(group)
-
-
-
-    def config_restore_default(self):
-        from tkinter import messagebox
-        if messagebox.askyesno('确认', '确定要恢复默认参数吗？'):
-            st = self.get_station()
-            if not st:
-                messagebox.showwarning('提示', '请先选择泵站')
-                return
-            for group, params in self.config_vars.items():
-                for code, e in params.items():
-                    row = self.row(
-                        'SELECT param_value FROM parameter_value WHERE scope_type="station" AND scope_id=? AND param_group=? AND param_code=?',
-                        (self.sid(), group, code))
-                    if row:
-                        default_map = {
-                            'level_low_low': '0.20', 'target_level': '1.50', 'upper_level': '2.50',
-                            'level_high_high': '3.20', 'rise_rate_trigger': '0.10', 'fall_rate_trigger': '0.10',
-                            'freq_min': '20.0', 'freq_economic': '30.0', 'freq_normal': '40.0', 'freq_high': '50.0',
-                            'feed_start_delay_seconds': '5', 'start_delay_seconds': '10',
-                            'feed_stop_delay_seconds': '10', 'level_select_mode': '主用优先',
-                            'primary_level_instrument_code': '', 'backup_level_instrument_code': '',
-                            'level_diff_alarm_m': '0.10', 'start_feedback_timeout_seconds': '30',
-                            'stop_feedback_timeout_seconds': '30', 'current_low_value': '20',
-                            'current_high_value': '150', 'current_check_delay_seconds': '5',
-                            'control_deadband': '0.10', 'freq_step': '1.0',
-                            'freq_adjust_interval_seconds': '5', 'add_pump_min_interval_seconds': '60',
-                            'reduce_pump_min_interval_seconds': '60',
-                        }
-                        e.delete(0, 'end')
-                        e.insert(0, default_map.get(code, ''))
-            messagebox.showinfo('成功', '已恢复默认参数')
-
-    def config_apply_to_device(self):
-        from tkinter import messagebox
-        if not self.sid():
-            messagebox.showwarning('提示', '请先选择泵站')
-            return
-        messagebox.showinfo('提示', '参数已发送到设备（模拟）')
-
-    def config_save_all(self):
-        from tkinter import messagebox
-        if not self.sid():
-            messagebox.showwarning('提示', '请先选择泵站')
-            return
-        for group, params in self.config_vars.items():
-            for code, e in params.items():
-                self.db.set_param(self.sid(), group, code, e.get().strip())
-        self.db.log('保存参数配置', 'station', self.sid(), '全部参数', '', '保存', 'success', '参数配置页')
-        messagebox.showinfo('成功', '参数已保存到当前泵站')
-        self.refresh_all()
-
-    def config_switch_station(self, event=None):
+    def config_switch_station(self):
         s = self.config_station.get() if hasattr(self, 'config_station') else ''
         try:
             sid = int(s.split('|')[0].strip())
@@ -3769,7 +3518,7 @@ class App(tk.Tk):
         self.db.log('参数配置切换泵站', 'station', sid, self.station_title(), '', '切换', 'success', 'operator')
         self.refresh_all()
 
-    def refresh_config_params(self, event=None):
+    def refresh_config_params(self):
         if not hasattr(self, 'config_vars'):
             return
         st = self.get_station()
@@ -3788,13 +3537,10 @@ class App(tk.Tk):
         if not st:
             for group, mp in self.config_vars.items():
                 for e in mp.values():
-                    if e.winfo_exists():
-                        e.delete(0, 'end')
+                    e.delete(0, 'end')
             return
         for group, mp in self.config_vars.items():
             for code, e in mp.items():
-                if not e.winfo_exists():
-                    continue
                 row = self.row(
                     'SELECT param_value FROM parameter_value WHERE scope_type="station" AND scope_id=? AND param_group=? AND param_code=?',
                     (self.sid(), group, code))
