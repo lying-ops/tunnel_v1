@@ -30,3 +30,5 @@ __pycache__/
 *.pyd
 
 test.py
+
+pump_station.db-journal
