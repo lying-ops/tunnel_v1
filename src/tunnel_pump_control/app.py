@@ -1941,7 +1941,9 @@ class App(tk.Tk):
         right.pack(side='right', fill='y', padx=8, pady=8)
         cols = ('ID', '编号', '名称', '类型', '启用', '自动', '应急', '备用', '检修', '故障', '额定流量', '给水泵')
         self.pump_tree = ttk.Treeview(left, columns=cols, show='headings', height=20)
-        for c in cols: self.pump_tree.heading(c, text=c); self.pump_tree.column(c, width=80, anchor='center')
+        for c in cols:
+            self.pump_tree.heading(c, text=c)
+            self.pump_tree.column(c, width=80, anchor='center')
         self.pump_tree.pack(fill='both', expand=True);
         self.pump_tree.bind('<<TreeviewSelect>>', self.on_pump_select)
         self.pump_vars = {}
@@ -3178,16 +3180,21 @@ class App(tk.Tk):
             ('复位告警', '#1a456b', '#8bc5ff', self._manual_reset_alarm, '🔄', '清除所有告警状态'),
         ]
 
+        btn_count = len(action_btns) - 1
+        for i in range(btn_count):
+            action_bar.grid_columnconfigure(i + 1, weight=1)
+
         for i, (text, bg, fg, cmd, icon, note) in enumerate(action_btns):
             if i == 0:
-                tk.Label(action_bar, text=text, font=('Microsoft YaHei', 12, 'bold'), bg=self.manual_panel, fg=self.manual_text).pack(side='left', padx=20, pady=10)
+                tk.Label(action_bar, text=text, font=('Microsoft YaHei', 12, 'bold'), bg=self.manual_panel, fg=self.manual_text).grid(row=0, column=0, padx=20, pady=10, sticky='w')
             else:
                 btn_frame = tk.Frame(action_bar, bg=bg)
-                btn_frame.pack(side='left', padx=8, pady=8)
+                btn_frame.grid(row=0, column=i, sticky='nsew', padx=(10, 10) if i > 1 else 0, pady=10)
+                btn_frame.grid_columnconfigure(0, weight=1)
                 btn = tk.Button(btn_frame, text=f'{icon} {text}', font=('Microsoft YaHei', 11, 'bold'),
-                                bg=bg, fg=fg, relief='flat', padx=15, pady=4, command=cmd)
-                btn.pack(anchor='center')
-                tk.Label(btn_frame, text=note, font=('Microsoft YaHei', 8), bg=bg, fg=fg).pack(anchor='center', pady=(2, 0))
+                                bg=bg, fg=fg, relief='flat', padx=10, pady=4, command=cmd)
+                btn.grid(row=0, column=0, sticky='nsew')
+                tk.Label(btn_frame, text=note, font=('Microsoft YaHei', 8), bg=bg, fg=fg).grid(row=1, column=0, pady=(2, 0))
                 if i == 4:
                     self.manual_stop_all_btn = btn
 
@@ -3266,7 +3273,7 @@ class App(tk.Tk):
         )
 
         right_panel.config(
-            width=400
+            width=350
         )
 
         right_panel.pack_propagate(False)
@@ -3317,7 +3324,6 @@ class App(tk.Tk):
 
         headers = [
             ('时间', 7),
-            ('操作者', 5),
             ('操作内容', 13),
             ('结果', 5),
         ]
@@ -3332,7 +3338,7 @@ class App(tk.Tk):
                 bg='#0a2345',
                 fg='#8fb8df'
             )
-            lab.grid(row=0, column=i, sticky='w', padx=(6 if i == 0 else 2, 2), pady=6)
+            lab.grid(row=0, column=i, sticky='w', padx=(6 if i == 0 else 2, 0), pady=6)
 
         # 日志内容区
         self.manual_log_body = tk.Frame(log_outer, bg='#061a33')
@@ -3431,9 +3437,6 @@ class App(tk.Tk):
             obj_name = str(r['object_name'] or '')
             result = str(r['result'] or '')
 
-            # 操作者：如果表里没有字段，就先写 admin
-            operator = 'admin'
-
             # 操作内容拼接
             content = (op_type + '->' + obj_name).strip()
 
@@ -3469,16 +3472,6 @@ class App(tk.Tk):
                 anchor='w',
                 width=8
             ).pack(side='left')
-
-            tk.Label(
-                rowf,
-                text=operator,
-                bg='#061a33',
-                fg='#d8ecff',
-                font=('Microsoft YaHei', 9),
-                anchor='w',
-                width=8
-            ).grid(row=0, column=1, sticky='w', padx=2, pady=5)
 
             tk.Label(
                 rowf,
@@ -3783,8 +3776,8 @@ class App(tk.Tk):
         self.manual_freq_entries = {}
         if not pumps:
             return
-        feed_pumps = [p for p in pumps if p['pump_type'] == 'feed']
-        drain_pumps = [p for p in pumps if p['pump_type'] != 'feed']
+        drain_pumps= [p for p in pumps if p['pump_type'] == 'feed']
+        feed_pumps = [p for p in pumps if p['pump_type'] != 'feed']
 
         self.feed_pump_title.config(text=f'水泵控制（母管：（A1~A{len(drain_pumps)}）')
         for p in feed_pumps:
@@ -3974,8 +3967,8 @@ class App(tk.Tk):
                     ('freq_economic', '经济频率', 'Hz', '#00cc99', '#58ffc9', '20.0', '40.0', 'wave'),
                     ('freq_normal', '正常频率', 'Hz', '#0066cc', '#25e0ff', '30.0', '60.0', 'wave'),
                     ('freq_high', '高频率', 'Hz', '#d4a806', '#ffd93d', '40.0', '80.0', 'wave'),
-                    # TODO 无对应参数
                     ('feed_start_delay_seconds', '给水泵启动延时', 's', '#00cc99', '#58ffc9', '0', '60', 'clock'),
+                    # TODO 无对应参数 数据库对应参数
                     ('start_delay_seconds', '主泵启动延时', 's', '#0066cc', '#25e0ff', '0', '120', 'clock'),
                     ('feed_stop_delay_seconds', '给水泵停止延时', 's', '#cc3333', '#e8e8e8', '0', '120', 'clock'),
                 ],
