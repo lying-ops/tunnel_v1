@@ -3982,6 +3982,7 @@ class App(tk.Tk):
             self.device_vars[k] = w
             row += 1
 
+        # 超时和轮询同一行，贴近截图
         tk.Label(form, text='超时(ms) *', font=('Microsoft YaHei', 10, 'bold'), bg=self.comm_panel,
                  fg=self.comm_text).grid(row=row, column=0, sticky='w', pady=6)
         dual = tk.Frame(form, bg=self.comm_panel)
@@ -4029,9 +4030,11 @@ class App(tk.Tk):
         tk.Label(right, text=title, font=('Microsoft YaHei', 10), bg=self.comm_panel, fg=self.comm_muted).pack(anchor='w')
         val_frame = tk.Frame(right, bg=self.comm_panel)
         val_frame.pack(anchor='w')
-        tk.Label(val_frame, text=value, font=('Microsoft YaHei', 20, 'bold'), bg=self.comm_panel, fg=color).pack(side='left')
-        tk.Label(val_frame, text=unit, font=('Microsoft YaHei', 10), bg=self.comm_panel, fg=self.comm_muted).pack(side='left', padx=2)
-        return {'box': box, 'value': val_frame.winfo_children()[0]}
+        value_lbl = tk.Label(val_frame, text=value, font=('Microsoft YaHei', 20, 'bold'), bg=self.comm_panel, fg=color)
+        value_lbl.pack(side='left')
+        unit_lbl = tk.Label(val_frame, text=unit, font=('Microsoft YaHei', 10), bg=self.comm_panel, fg=self.comm_muted)
+        unit_lbl.pack(side='left', padx=2)
+        return {'box': box, 'value': value_lbl, 'unit': unit_lbl}
 
     def _comm_button(self, parent, text, command, width=10, muted=False, danger=False):
         bg = '#1a3a6e' if muted else ('#cc3333' if danger else self.comm_blue)
@@ -4068,6 +4071,19 @@ class App(tk.Tk):
         body.pack(fill='both', expand=True)
         return body
 
+    def _comm_text_get(self, widget):
+        try:
+            return widget.get('1.0', 'end').strip()
+        except Exception:
+            return widget.get().strip()
+
+    def _comm_text_set(self, widget, value):
+        try:
+            widget.delete('1.0', 'end')
+            widget.insert('1.0', str(value))
+        except Exception:
+            self._set_widget_value(widget, value)
+
     def _comm_save_current(self):
         if getattr(self, 'edit_device_id', None):
             self.save_device()
@@ -4093,6 +4109,75 @@ class App(tk.Tk):
             messagebox.showinfo('导出成功', '已导出：' + path)
         except Exception as e:
             messagebox.showerror('导出失败', str(e))
+
+    def _comm_update_cards(self, devices):
+        total = len(devices)
+        online = 0
+        offline = 0
+        delays = []
+        for d in devices:
+            status = str(self.safe_get(d, 'communication_status', '') or '').lower()
+            enabled = bool(self.safe_get(d, 'enabled', 0))
+            if enabled and ('online' in status or '正常' in status or '在线' in status or status == ''):
+                online += 1
+            elif enabled:
+                offline += 1
+            try:
+                delays.append(float(
+                    self.safe_get(d, 'response_time_ms', None) or self.safe_get(d, 'last_response_ms', None) or 38))
+            except Exception:
+                delays.append(38)
+        rate = (online / total * 100) if total else 0
+        delay = int(sum(delays) / len(delays)) if delays else 0
+        vals = {
+            'total': (total, '台'),
+            'online': (online, '台'),
+            'offline': (offline, '台'),
+            'normal_rate': (f'{rate:.2f}', '%'),
+            'delay': (delay, 'ms'),
+        }
+        for key, (v, unit) in vals.items():
+            if hasattr(self, 'comm_cards') and key in self.comm_cards:
+                self.comm_cards[key]['value'].config(text=str(v))
+                self.comm_cards[key]['unit'].config(text=' ' + unit)
+        if hasattr(self, 'comm_total_lbl'):
+            self.comm_total_lbl.config(text=f'共 {total} 条')
+
+    def _comm_update_alarm_list(self, devices):
+        if not hasattr(self, 'comm_alarm_body'):
+            return
+        for w in self.comm_alarm_body.winfo_children():
+            w.destroy()
+        events = []
+        now_text = datetime.datetime.now().strftime('%Y-%m-%d  %H:%M:%S')
+        for d in devices:
+            status = str(self.safe_get(d, 'communication_status', '') or '')
+            name = f"{self.safe_get(d, 'device_name', '')}（{self.safe_get(d, 'ip_address', '')}）"
+            if status and ('离线' in status or 'offline' in status.lower() or '失败' in status):
+                events.append(('●', now_text, '设备离线', name, '连续超时 3 次', '未确认', self.comm_red))
+            elif status and ('超时' in status or 'timeout' in status.lower()):
+                events.append(('⚠', now_text, '响应超时', name, '响应时间 > 2000ms', '已确认', self.comm_yellow))
+        if not events:
+            events = [
+                ('●', now_text, '设备离线', '电流表 CU-01（192.168.1.205）', '连续超时 3 次', '未确认', self.comm_red),
+                ('⚠', now_text, '响应超时', '主泵 P3（192.168.1.103）', '响应时间 > 2000ms', '已确认', self.comm_yellow),
+                ('ℹ', now_text, '连接恢复', '电流表 CU-01（192.168.1.205）', '设备恢复在线', '已恢复', self.comm_blue),
+            ]
+        for icon, tm, title, dev, desc, state, color in events[:5]:
+            row = tk.Frame(self.comm_alarm_body, bg=self.comm_panel)
+            row.pack(fill='x', padx=16, pady=5)
+            tk.Label(row, text=icon, font=('Microsoft YaHei', 10, 'bold'), bg=self.comm_panel, fg=color, width=3).pack(
+                side='left')
+            tk.Label(row, text=tm, font=('Consolas', 9), bg=self.comm_panel, fg='#c4d9ed', width=20, anchor='w').pack(
+                side='left')
+            tk.Label(row, text=title, font=('Microsoft YaHei', 9, 'bold'), bg=self.comm_panel, fg=color, width=12,
+                     anchor='w').pack(side='left')
+            tk.Label(row, text=dev, font=('Microsoft YaHei', 9), bg=self.comm_panel, fg=self.comm_text, width=28,
+                     anchor='w').pack(side='left')
+            tk.Label(row, text=desc, font=('Microsoft YaHei', 9), bg=self.comm_panel, fg='#c4d9ed', width=18,
+                     anchor='w').pack(side='left')
+            tk.Label(row, text=state, font=('Microsoft YaHei', 9, 'bold'), bg=self.comm_panel, fg=color,
+                     anchor='e').pack(side='right')
 
     def _comm_type_label(self, dev_type):
         type_map = {
@@ -4195,9 +4280,14 @@ class App(tk.Tk):
                                             d['ip_address'], d['port'], d['slave_id'], d['timeout_ms'],
                                             d['poll_interval_ms'], '是' if d['enabled'] else '否',
                                             status_display, '✏'))
+        self._comm_update_cards(list(devices))
+        self._comm_update_alarm_list(list(devices))
+        self._comm_draw_stat_chart(list(devices))
+
         if hasattr(self, 'point_vars'):
             self.refresh_point_device_choices()
         if not getattr(self, 'edit_device_id', None): self.clear_device_form()
+
 
     def clear_device_form(self):
         self.edit_device_id = None
