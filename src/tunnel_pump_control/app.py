@@ -3100,73 +3100,405 @@ class App(tk.Tk):
     # Manual control
     def build_manual_page(self):
         f = self.pages['手动控制']
-        banner = tk.Frame(f, bg='#123b63');
-        banner.pack(fill='x', padx=10, pady=(8, 4))
-        tk.Label(banner, text='🕹 现场手动控制 / 人工抢排', font=('Microsoft YaHei', 15, 'bold'), bg='#123b63',
-                 fg='white').pack(side='left', padx=12, pady=8)
-        tk.Label(banner, text='手动、自动清晰切换；应急抢排醒目显示', font=('Microsoft YaHei', 10), bg='#123b63',
-                 fg='#cfe8ff').pack(side='left', padx=12)
-        station_frame = ttk.LabelFrame(f, text='① 现场快速切换泵站');
-        station_frame.pack(fill='x', padx=10, pady=6)
-        ttk.Label(station_frame, text='控制泵站').grid(row=0, column=0, padx=5, pady=5, sticky='e')
-        self.manual_station = ttk.Combobox(station_frame, width=36, state='readonly')
-        self.manual_station.grid(row=0, column=1, padx=5, pady=5, sticky='w')
-        ttk.Button(station_frame, text='切换到该泵站', command=self.manual_switch_station).grid(row=0, column=2, padx=5,
-                                                                                                pady=5)
+        for w in f.winfo_children():
+            w.destroy()
 
-        mode_frame = ttk.LabelFrame(f, text='② 泵站运行模式切换');
-        mode_frame.pack(fill='x', padx=10, pady=6)
-        self.mode_status = ttk.Label(mode_frame, text='当前运行模式：-    自动调节状态：-',
-                                     font=('Microsoft YaHei', 11, 'bold'));
-        self.mode_status.grid(row=0, column=0, columnspan=6, sticky='w', padx=6, pady=5)
-        ttk.Button(mode_frame, text='🔵 切换到手动', style='Primary.TButton',
-                   command=lambda: self.change_mode('manual')).grid(row=2, column=0, padx=4, pady=6)
-        ttk.Button(mode_frame, text='🟢 切换到自动', style='Success.TButton',
-                   command=lambda: self.change_mode('auto')).grid(row=2, column=1, padx=4, pady=6)
+        self.manual_bg = '#020b18'
+        self.manual_panel = '#061a33'
+        self.manual_line = '#0b72c8'
+        self.manual_text = '#dceeff'
+        self.manual_muted = '#8fb8dc'
+        self.manual_blue = '#1e9bff'
+        self.manual_green = '#21e56d'
+        self.manual_red = '#ff564d'
+        self.manual_yellow = '#ffc526'
 
-        em_frame = ttk.LabelFrame(f, text='③ 人工应急启动 / 抢排操作')
-        em_frame.pack(fill='x', padx=10, pady=6)
-        self.emergency_start_box = ttk.Frame(em_frame)
-        self.emergency_start_box.pack(fill='x', padx=6, pady=5)
+        main_frame = tk.Frame(f, bg=self.manual_bg)
+        main_frame.pack(fill='both', expand=True)
 
-        card_box = ttk.LabelFrame(f, text='⑤ 水泵一键控制面板');
-        card_box.pack(fill='both', expand=True, padx=10, pady=8)
-        self.manual_canvas = tk.Canvas(card_box, height=500, highlightthickness=0, bg='#f5f7fb')
-        self.manual_scroll = ttk.Scrollbar(card_box, orient='vertical', command=self.manual_canvas.yview)
-        self.manual_cards = ttk.Frame(self.manual_canvas)
-        self.manual_cards.bind('<Configure>',
-                               lambda e: self.manual_canvas.configure(scrollregion=self.manual_canvas.bbox('all')))
-        self.manual_canvas.create_window((0, 0), window=self.manual_cards, anchor='nw')
-        self.manual_canvas.configure(yscrollcommand=self.manual_scroll.set)
-        self.manual_canvas.pack(side='left', fill='both', expand=True)
-        self.manual_scroll.pack(side='right', fill='y')
+        # 顶部状态栏
+        status_bar = tk.Frame(main_frame, bg=self.manual_panel, highlightbackground=self.manual_line, highlightthickness=1)
+        status_bar.pack(fill='x', padx=10, pady=(10, 0))
+        status_bar.pack_propagate(False)
+        status_bar.config(height=90)
+
+        self.manual_status_values = {
+            'station': self.station_title(),
+            'mode': '-',
+            'auto_adjust': '已停用',
+            'level': '3.28 m',
+            'rate': '+0.05 m/min',
+            'emergency': '待命',
+        }
+
+        status_items = [
+            ('当前控制系统', 'station', self.manual_blue),
+            ('运行模式', 'mode', self.manual_green),
+            ('自动调节', 'auto_adjust', self.manual_muted),
+            ('液位', 'level', self.manual_blue),
+            ('上升速率', 'rate', self.manual_yellow),
+            ('应急状态', 'emergency', self.manual_muted),
+        ]
+
+        total_cols = len(status_items)
+        for i in range(total_cols):
+            status_bar.grid_columnconfigure(i, weight=1)
+
+        for i, (label, key, color) in enumerate(status_items):
+            item_frame = tk.Frame(status_bar, bg=self.manual_panel, highlightbackground=self.manual_line, highlightthickness=1)
+            item_frame.grid(row=0, column=i, sticky='nsew', padx=10, pady=10)
+            item_frame.grid_columnconfigure(0, weight=1)
+            tk.Label(item_frame, text=label, font=('Microsoft YaHei', 10), bg=self.manual_panel, fg=self.manual_muted).grid(row=0, column=0, sticky='w', pady=(8, 2), padx=15)
+            val_lbl = tk.Label(item_frame, text=self.manual_status_values.get(key, '-'), font=('Microsoft YaHei', 13, 'bold'), 
+                               bg=self.manual_panel, fg=color, anchor='w')
+            val_lbl.grid(row=1, column=0, sticky='w', padx=15)
+            if i == 0:
+                self.manual_station_lbl = val_lbl
+            elif i == 1:
+                self.manual_mode_lbl = val_lbl
+            elif i == 2:
+                self.manual_auto_adjust_lbl = val_lbl
+            elif i == 3:
+                self.manual_level_lbl = val_lbl
+            elif i == 4:
+                self.manual_rate_lbl = val_lbl
+            elif i == 5:
+                self.manual_emergency_lbl = val_lbl
+
+        # 操作按钮栏
+        action_bar = tk.Frame(main_frame, bg=self.manual_panel, highlightbackground=self.manual_line, highlightthickness=1)
+        action_bar.pack(fill='x', padx=10, pady=(10, 0))
+
+        action_btns = [
+            ('操作', '', '', None, '', ''),
+            ('切换到自动', '#06b447', '#ffffff', lambda: self._manual_switch_mode('auto'), '🟢', '恢复自动控制'),
+            ('保持手动', '#1a456b', '#8bc5ff', lambda: self._manual_switch_mode('manual'), '🔵', '当前为手动模式'),
+            ('一键应急启动', '#ff9500', '#ffffff', self._manual_emergency_start, '⚠️', '全设备应急启动'),
+            ('全 停', self.manual_red, '#ffffff', self._manual_stop_all, '🔴', '停止所有设备运行'),
+            ('复位告警', '#1a456b', '#8bc5ff', self._manual_reset_alarm, '🔄', '清除所有告警状态'),
+        ]
+
+        for i, (text, bg, fg, cmd, icon, note) in enumerate(action_btns):
+            if i == 0:
+                tk.Label(action_bar, text=text, font=('Microsoft YaHei', 12, 'bold'), bg=self.manual_panel, fg=self.manual_text).pack(side='left', padx=20, pady=10)
+            else:
+                btn_frame = tk.Frame(action_bar, bg=bg)
+                btn_frame.pack(side='left', padx=8, pady=8)
+                btn = tk.Button(btn_frame, text=f'{icon} {text}', font=('Microsoft YaHei', 11, 'bold'),
+                                bg=bg, fg=fg, relief='flat', padx=15, pady=4, command=cmd)
+                btn.pack(anchor='center')
+                tk.Label(btn_frame, text=note, font=('Microsoft YaHei', 8), bg=bg, fg=fg).pack(anchor='center', pady=(2, 0))
+                if i == 4:
+                    self.manual_stop_all_btn = btn
+
+        # 中部区域：左侧水泵控制 + 右侧操作面板
+        mid_frame = tk.Frame(main_frame, bg=self.manual_bg)
+        mid_frame.pack(fill='both', expand=True, padx=10, pady=(10, 0))
+
+        # 左侧：水泵控制区域
+        left_panel = tk.Frame(
+            mid_frame,
+            bg=self.manual_panel,
+            highlightbackground=self.manual_line,
+            highlightthickness=1
+        )
+
+        left_panel.pack(
+            side='left',
+            fill='both',
+            expand=True,
+            padx=(0, 10)
+        )
+
+        # 给水泵控制
+        feed_frame = tk.Frame(left_panel, bg=self.manual_panel)
+        feed_frame.pack(fill='x', padx=14, pady=(14, 0))
+        self.feed_pump_title = tk.Label(feed_frame, text='水泵控制（母管：A1-P8）', font=('Microsoft YaHei', 13, 'bold'),
+                                        bg=self.manual_panel, fg=self.manual_text)
+        self.feed_pump_title.pack(side='left')
+        self.feed_pump_cards = tk.Frame(
+            left_panel,
+            bg=self.manual_panel,
+            height=230
+        )
+
+        self.feed_pump_cards.pack(
+            fill='both',
+            expand=False,
+            padx=14,
+            pady=(8, 0)
+        )
+
+        self.feed_pump_cards.configure(height=230)
+        self.feed_pump_cards.pack_propagate(False)
+
+        # 排水泵控制
+        drain_frame = tk.Frame(left_panel, bg=self.manual_panel)
+        drain_frame.pack(fill='x', padx=14, pady=(14, 0))
+
+        self.drain_pump_title = tk.Label(drain_frame, text='排水泵控制（集水池：JP1-JP8）',
+                                         font=('Microsoft YaHei', 13, 'bold'), bg=self.manual_panel,
+                                         fg=self.manual_text)
+        self.drain_pump_title.pack(side='left')
+        self.drain_pump_cards = tk.Frame(
+            left_panel,
+            bg=self.manual_panel,
+            height=230
+        )
+
+        self.drain_pump_cards.pack(
+            fill='both',
+            expand=False,
+            padx=14,
+            pady=(8, 14)
+        )
+
+        self.drain_pump_cards.configure(height=230)
+        self.drain_pump_cards.pack_propagate(False)
+
+        # 右侧：操作面板
+        right_panel = tk.Frame(mid_frame, bg=self.manual_panel, highlightbackground=self.manual_line, highlightthickness=1)
+        right_panel.pack(
+            side='left',
+            fill='y',
+            expand=False,
+            padx=(0, 0)
+        )
+
+        right_panel.config(
+            width=400
+        )
+
+        right_panel.pack_propagate(False)
+
+        # 操作确认面板
+        confirm_frame = tk.Frame(right_panel, bg=self.manual_panel)
+        confirm_frame.pack(fill='x', padx=14, pady=(14, 0))
+        tk.Label(confirm_frame, text='操作确认面板', font=('Microsoft YaHei', 13, 'bold'),
+                 bg=self.manual_panel, fg=self.manual_text).pack(anchor='w')
+        tk.Label(confirm_frame, text='操作命令将立即执行', font=('Microsoft YaHei', 10),
+                 bg=self.manual_panel, fg=self.manual_yellow).pack(anchor='w', pady=(4, 0))
+        tk.Label(confirm_frame, text='请确认设备状态后再操作', font=('Microsoft YaHei', 10),
+                 bg=self.manual_panel, fg=self.manual_muted).pack(anchor='w')
+
+        # 最近操作日志
+        log_outer = tk.Frame(
+            right_panel,
+            bg='#071f3d',
+            highlightbackground=self.manual_line,
+            highlightthickness=1
+        )
+        log_outer.pack(fill='both', expand=True, padx=14, pady=(14, 0))
+
+        # 标题栏
+        log_title = tk.Frame(log_outer, bg='#071f3d')
+        log_title.pack(fill='x', padx=10, pady=(8, 4))
+
+        tk.Label(
+            log_title,
+            text='▍ 最近操作日志',
+            font=('Microsoft YaHei', 12, 'bold'),
+            bg='#071f3d',
+            fg='#cfe8ff'
+        ).pack(side='left')
+
+        tk.Label(
+            log_title,
+            text='更多 >',
+            font=('Microsoft YaHei', 9),
+            bg='#071f3d',
+            fg='#35b7ff',
+            cursor='hand2'
+        ).pack(side='right')
+
+        # 表头
+        head = tk.Frame(log_outer, bg='#0a2345')
+        head.pack(fill='x', padx=10, pady=(0, 2))
+
+        headers = [
+            ('时间', 7),
+            ('操作者', 5),
+            ('操作内容', 13),
+            ('结果', 5),
+        ]
+
+        for i, (txt, w) in enumerate(headers):
+            lab = tk.Label(
+                head,
+                text=txt,
+                width=w,
+                anchor='w',
+                font=('Microsoft YaHei', 9, 'bold'),
+                bg='#0a2345',
+                fg='#8fb8df'
+            )
+            lab.grid(row=0, column=i, sticky='w', padx=(6 if i == 0 else 2, 2), pady=6)
+
+        # 日志内容区
+        self.manual_log_body = tk.Frame(log_outer, bg='#061a33')
+        self.manual_log_body.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+
+        # 操作提示
+        tips_frame = tk.Frame(right_panel, bg=self.manual_panel)
+        tips_frame.pack(fill='x', padx=14, pady=(14, 14))
+        tk.Label(tips_frame, text='操作提示', font=('Microsoft YaHei', 11, 'bold'),
+                 bg=self.manual_panel, fg=self.manual_text).pack(anchor='w')
+        tips = [
+            '手动模式下，所有设备操作将立即执行。',
+            '请根据现场情况谨慎操作，确保设备安全。',
+            '完成操作后可切换到自动模式恢复自动控制。',
+        ]
+        for tip in tips:
+            tk.Label(tips_frame, text=tip, font=('Microsoft YaHei', 9),
+                     bg=self.manual_panel, fg=self.manual_muted).pack(anchor='w', pady=2)
 
     def refresh_manual_lists(self):
-        stations = [f"{r['id']} | {r['station_code']} | {r['station_name']}" for r in
-                    self.rows('SELECT id,station_code,station_name FROM pump_station ORDER BY id')]
-        if hasattr(self, 'manual_station'):
-            self.manual_station['values'] = stations
-            sid = self.sid()
-            cur = ''
-            for v in stations:
-                if v.startswith(str(sid) + ' |'):
-                    cur = v;
-                    break
-            self.manual_station.set(cur if cur else (stations[0] if stations else ''))
         st = self.get_station()
         if not st:
-            if hasattr(self, 'mode_status'):
-                self.mode_status.config(text='当前运行模式：-    自动调节状态：-')
+            if hasattr(self, 'manual_station_lbl'):
+                self.manual_station_lbl.config(text='无泵站')
+            if hasattr(self, 'manual_mode_lbl'):
+                self.manual_mode_lbl.config(text='-', fg=self.manual_muted)
+            if hasattr(self, 'manual_auto_adjust_lbl'):
+                self.manual_auto_adjust_lbl.config(text='已停用', fg=self.manual_muted)
+            if hasattr(self, 'manual_level_lbl'):
+                self.manual_level_lbl.config(text='-')
+            if hasattr(self, 'manual_rate_lbl'):
+                self.manual_rate_lbl.config(text='-')
+            if hasattr(self, 'manual_emergency_lbl'):
+                self.manual_emergency_lbl.config(text='待命', fg=self.manual_muted)
             self.refresh_manual_cards([])
-            self.refresh_emergency_start_area([])
             return
-        if hasattr(self, 'mode_status'):
-            self.mode_status.config(
-                text=f"当前运行模式：{MODE_LABEL.get(st['control_mode'], st['control_mode'])}    自动调节状态：{st['emergency_level']}")
+        if hasattr(self, 'manual_station_lbl'):
+            self.manual_station_lbl.config(text=self.station_title())
+        if hasattr(self, 'manual_mode_lbl'):
+            mode = st['control_mode'] or 'manual'
+            mode_text = '自动模式' if mode == 'auto' else '手动模式'
+            mode_color = self.manual_green if mode == 'auto' else self.manual_blue
+            self.manual_mode_lbl.config(text=mode_text, fg=mode_color)
+        if hasattr(self, 'manual_auto_adjust_lbl'):
+            auto_adjust_text = '已启用' if (st['control_mode'] or '') == 'auto' else '已停用'
+            auto_adjust_color = self.manual_green if (st['control_mode'] or '') == 'auto' else self.manual_muted
+            self.manual_auto_adjust_lbl.config(text=auto_adjust_text, fg=auto_adjust_color)
+        if hasattr(self, 'manual_level_lbl'):
+            level = float(st['current_level'] or 0)
+            self.manual_level_lbl.config(text=f'{level:.2f} m')
+        if hasattr(self, 'manual_rate_lbl'):
+            rate = float(st['level_rise_rate'] or 0)
+            sign = '+' if rate > 0 else ''
+            self.manual_rate_lbl.config(text=f'{sign}{rate:.2f} m/min')
+        if hasattr(self, 'manual_emergency_lbl'):
+            emergency = st['emergency_level'] or '待命'
+            color = self.manual_green if emergency != '待命' else self.manual_muted
+            self.manual_emergency_lbl.config(text=emergency, fg=color)
         pumps = self.rows('SELECT * FROM pump WHERE station_id=? ORDER BY pump_type="feed", display_order,id',
                           (self.sid(),))
         self.refresh_manual_cards(pumps)
         self.refresh_emergency_start_area(pumps)
+        self.refresh_manual_log()
+
+    def refresh_manual_log(self):
+        if not hasattr(self, 'manual_log_body'):
+            return
+
+        for w in self.manual_log_body.winfo_children():
+            w.destroy()
+
+        rows = self.rows(
+            '''
+            SELECT operation_time,
+                   operation_type,
+                   object_name,
+                   result
+            FROM operation_log
+            ORDER BY id DESC LIMIT 7
+            '''
+        )
+
+        if not rows:
+            tk.Label(
+                self.manual_log_body,
+                text='暂无操作日志',
+                bg='#061a33',
+                fg='#6f9cc7',
+                font=('Microsoft YaHei', 10)
+            ).pack(anchor='w', padx=8, pady=8)
+            return
+
+        for r in rows:
+            t = str(r['operation_time'] or '')[-8:]
+            op_type = str(r['operation_type'] or '')
+            obj_name = str(r['object_name'] or '')
+            result = str(r['result'] or '')
+
+            # 操作者：如果表里没有字段，就先写 admin
+            operator = 'admin'
+
+            # 操作内容拼接
+            content = (op_type + '->' + obj_name).strip()
+
+            # 结果颜色
+            ok = result.lower() in ('success', 'ok', '成功')
+            result_text = '成功' if ok else (result if result else '失败')
+            result_fg = '#49e66a' if ok else '#ff5b57'
+
+            # 左侧状态圆点颜色
+            dot_fg = '#49e66a' if ok else '#ff5b57'
+
+            rowf = tk.Frame(self.manual_log_body, bg='#061a33')
+            rowf.pack(fill='x', pady=1)
+
+            # 时间（带圆点）
+            time_wrap = tk.Frame(rowf, bg='#061a33')
+            time_wrap.grid(row=0, column=0, sticky='w', padx=(4, 2), pady=5)
+
+            tk.Label(
+                time_wrap,
+                text='●',
+                bg='#061a33',
+                fg=dot_fg,
+                font=('Microsoft YaHei', 9, 'bold')
+            ).pack(side='left', padx=(0, 4))
+
+            tk.Label(
+                time_wrap,
+                text=t,
+                bg='#061a33',
+                fg='#d8ecff',
+                font=('Microsoft YaHei', 9),
+                anchor='w',
+                width=8
+            ).pack(side='left')
+
+            tk.Label(
+                rowf,
+                text=operator,
+                bg='#061a33',
+                fg='#d8ecff',
+                font=('Microsoft YaHei', 9),
+                anchor='w',
+                width=8
+            ).grid(row=0, column=1, sticky='w', padx=2, pady=5)
+
+            tk.Label(
+                rowf,
+                text=content,
+                bg='#061a33',
+                fg='#d8ecff',
+                font=('Microsoft YaHei', 9),
+                anchor='w',
+                width=18
+            ).grid(row=0, column=2, sticky='w', padx=2, pady=5)
+
+            tk.Label(
+                rowf,
+                text=result_text,
+                bg='#061a33',
+                fg=result_fg,
+                font=('Microsoft YaHei', 9, 'bold'),
+                anchor='w',
+                width=6
+            ).grid(row=0, column=3, sticky='w', padx=2, pady=5)
 
     def refresh_emergency_start_area(self, pumps=None):
         if not hasattr(self, 'emergency_start_box'):
@@ -3282,82 +3614,184 @@ class App(tk.Tk):
         """手动控制页防闪烁：定时刷新时只更新顶部状态，不重建按钮卡片。
         水泵启停/设频/状态切换后会主动刷新整页。"""
         st = self.get_station()
-        if hasattr(self, 'mode_status'):
-            if st:
-                self.mode_status.config(
-                    text=f"当前运行模式：{MODE_LABEL.get(st['control_mode'], st['control_mode'])}    自动调节状态：{st['emergency_level']}")
-            else:
-                self.mode_status.config(text='当前运行模式：-    自动调节状态：-')
+        if not st:
+            if hasattr(self, 'manual_station_lbl'):
+                self.manual_station_lbl.config(text='无泵站')
+            if hasattr(self, 'manual_mode_lbl'):
+                self.manual_mode_lbl.config(text='-', fg=self.manual_muted)
+            if hasattr(self, 'manual_auto_adjust_lbl'):
+                self.manual_auto_adjust_lbl.config(text='已停用', fg=self.manual_muted)
+            if hasattr(self, 'manual_level_lbl'):
+                self.manual_level_lbl.config(text='-')
+            if hasattr(self, 'manual_rate_lbl'):
+                self.manual_rate_lbl.config(text='-')
+            if hasattr(self, 'manual_emergency_lbl'):
+                self.manual_emergency_lbl.config(text='待命', fg=self.manual_muted)
+            return
+        if hasattr(self, 'manual_station_lbl'):
+            self.manual_station_lbl.config(text=self.station_title())
+        if hasattr(self, 'manual_mode_lbl'):
+            mode = st['control_mode'] or 'manual'
+            mode_text = '自动模式' if mode == 'auto' else '手动模式'
+            mode_color = self.manual_green if mode == 'auto' else self.manual_blue
+            self.manual_mode_lbl.config(text=mode_text, fg=mode_color)
+        if hasattr(self, 'manual_auto_adjust_lbl'):
+            auto_adjust_text = '已启用' if (st['control_mode'] or '') == 'auto' else '已停用'
+            auto_adjust_color = self.manual_green if (st['control_mode'] or '') == 'auto' else self.manual_muted
+            self.manual_auto_adjust_lbl.config(text=auto_adjust_text, fg=auto_adjust_color)
+        if hasattr(self, 'manual_level_lbl'):
+            level = float(st['current_level'] or 0)
+            self.manual_level_lbl.config(text=f'{level:.2f} m')
+        if hasattr(self, 'manual_rate_lbl'):
+            rate = float(st['level_rise_rate'] or 0)
+            sign = '+' if rate > 0 else ''
+            self.manual_rate_lbl.config(text=f'{sign}{rate:.2f} m/min')
+        if hasattr(self, 'manual_emergency_lbl'):
+            emergency = st['emergency_level'] or '待命'
+            color = self.manual_green if emergency != '待命' else self.manual_muted
+            self.manual_emergency_lbl.config(text=emergency, fg=color)
+
+    def _manual_switch_mode(self, mode):
+        if mode == 'auto':
+            self.change_mode('auto')
+            if hasattr(self, 'manual_mode_lbl'):
+                self.manual_mode_lbl.config(text='自动模式', fg=self.manual_green)
+            if hasattr(self, 'manual_auto_adjust_lbl'):
+                self.manual_auto_adjust_lbl.config(text='已启用', fg=self.manual_green)
+        else:
+            self.change_mode('manual')
+            if hasattr(self, 'manual_mode_lbl'):
+                self.manual_mode_lbl.config(text='手动模式', fg=self.manual_blue)
+            if hasattr(self, 'manual_auto_adjust_lbl'):
+                self.manual_auto_adjust_lbl.config(text='已停用', fg=self.manual_muted)
+        self.refresh_all()
+
+    def _manual_emergency_start(self):
+        if hasattr(self, 'manual_emergency_lbl'):
+            self.manual_emergency_lbl.config(text='已启用', fg=self.manual_green)
+        self.manual_emergency_start_all()
+
+    def _manual_reset_alarm(self):
+        if hasattr(self, 'manual_emergency_lbl'):
+            self.manual_emergency_lbl.config(text='待命', fg=self.manual_muted)
+        self.refresh_all()
+
+    def _manual_stop_all(self):
+        if self.is_auto_mode():
+            messagebox.showwarning('提示', '当前泵站处于自动模式，手动操作已锁定。请先切换到手动模式。')
+            return
+        if not messagebox.askyesno('确认全停', '确认停止当前泵站所有运行中的水泵？'):
+            return
+        pumps = self.rows("SELECT * FROM pump WHERE station_id=? AND run_feedback=1 ORDER BY pump_type='feed', display_order,id",
+                          (self.sid(),))
+        stopped = []
+        for p in pumps:
+            ok, msg = self.service.stop_pump(p['id'], 'manual')
+            if ok:
+                stopped.append(p['pump_code'])
+        messagebox.showinfo('全停结果', '已停止：' + (', '.join(stopped) if stopped else '无'))
+        self.refresh_all()
+
+    def _manual_pump_card(self, parent, p):
+        card = tk.Frame(parent, bg='#0a2a4a', highlightbackground=self.manual_line, highlightthickness=1)
+        card.pack(side='left', fill='y', padx=(0, 8))
+        print(
+            "card size:",
+            card.winfo_width(),
+            card.winfo_height()
+        )
+        card.pack_propagate(False)
+        card.config(
+            width=180,
+            height=220
+        )
+
+        header = tk.Frame(card, bg='#071f3d')
+        header.pack(fill='x')
+        tk.Label(header, text=p['pump_code'], font=('Microsoft YaHei', 12, 'bold'),
+                 bg='#071f3d', fg=self.manual_text).pack(side='left', padx=8, pady=6)
+
+        state = self.pump_state_tag(p)
+        state_color = self.manual_red if state == 'fault' else (self.manual_yellow if state == 'maintenance' else
+                    (self.manual_green if state == 'running' else (self.manual_blue if state == 'standby' else self.manual_muted)))
+        state_text = '故障' if state == 'fault' else ('检修' if state == 'maintenance' else
+                    ('运行' if state == 'running' else ('备用' if state == 'standby' else '停止')))
+        tk.Label(header, text='● ' + state_text, font=('Microsoft YaHei', 9),
+                 bg='#071f3d', fg=state_color).pack(side='right', padx=8, pady=6)
+
+        body = tk.Frame(card, bg='#0a2a4a')
+        body.pack(fill='both', expand=True, padx=8, pady=4)
+
+        current_val = float(p['current'] or 0)
+        freq_val = float(p['frequency'] or 0)
+        set_freq_val = float(p['set_frequency'] or p['frequency'] or p['start_frequency'] or 30)
+
+        tk.Label(body, text=f'电流   {current_val:.1f} A', font=('Microsoft YaHei', 9),
+                 bg='#0a2a4a', fg=self.manual_text).pack(anchor='w', pady=2)
+        tk.Label(body, text=f'反馈频率 {freq_val:.1f} Hz', font=('Microsoft YaHei', 9),
+                 bg='#0a2a4a', fg=self.manual_text).pack(anchor='w', pady=2)
+        tk.Label(body, text=f'设定频率 {set_freq_val:.1f} Hz', font=('Microsoft YaHei', 9),
+                 bg='#0a2a4a', fg=self.manual_yellow).pack(anchor='w', pady=2)
+
+        e = tk.Entry(body, width=6, bg='#061a33', fg=self.manual_text, font=('Microsoft YaHei', 9),
+                     insertbackground=self.manual_text)
+        e.insert(0, f"{set_freq_val:.1f}")
+        e.pack(anchor='w', pady=4)
+        self.manual_freq_entries[p['id']] = e
+
+        btn_state = 'disabled' if self.is_auto_mode() else 'normal'
+
+        btn_row1 = tk.Frame(body, bg='#0a2a4a')
+        btn_row1.pack(fill='x')
+        tk.Button(btn_row1, text='启动', font=('Microsoft YaHei', 9, 'bold'),
+                  bg='#06b447', fg='#ffffff', relief='flat', padx=8, pady=3,
+                  state=btn_state, command=lambda pid=p['id']: self.manual_start_pid(pid)).pack(side='left', fill='x', expand=True, padx=(0, 2))
+        tk.Button(btn_row1, text='停止', font=('Microsoft YaHei', 9, 'bold'),
+                  bg=self.manual_red, fg='#ffffff', relief='flat', padx=8, pady=3,
+                  state=btn_state, command=lambda pid=p['id']: self.manual_stop_pid(pid)).pack(side='left', fill='x', expand=True, padx=(0, 2))
+        tk.Button(btn_row1, text='设频', font=('Microsoft YaHei', 9, 'bold'),
+                  bg=self.manual_blue, fg='#ffffff', relief='flat', padx=8, pady=3,
+                  state=btn_state, command=lambda pid=p['id']: self.manual_setfreq_pid(pid)).pack(side='left', fill='x', expand=True)
+
+        btn_row2 = tk.Frame(body, bg='#0a2a4a')
+        btn_row2.pack(fill='x', pady=(4, 0))
+        tk.Button(btn_row2, text='检修', font=('Microsoft YaHei', 9),
+                  bg='#1a456b', fg=self.manual_yellow, relief='flat', padx=8, pady=3,
+                  state=btn_state, command=lambda pid=p['id']: self.toggle_pump_field_pid(pid, 'maintenance')).pack(side='left', fill='x', expand=True, padx=(0, 2))
+        tk.Button(btn_row2, text='故障', font=('Microsoft YaHei', 9),
+                  bg='#1a456b', fg=self.manual_red, relief='flat', padx=8, pady=3,
+                  state=btn_state, command=lambda pid=p['id']: self.toggle_pump_field_pid(pid, 'manual_fault')).pack(side='left', fill='x', expand=True, padx=(0, 2))
+        tk.Button(btn_row2, text='备用', font=('Microsoft YaHei', 9),
+                  bg='#1a456b', fg=self.manual_blue, relief='flat', padx=8, pady=3,
+                  state=btn_state, command=lambda pid=p['id']: self.toggle_pump_field_pid(pid, 'standby')).pack(side='left', fill='x', expand=True)
+
+        return card
 
     def refresh_manual_cards(self, pumps):
-        if not hasattr(self, 'manual_cards'):
+        print("进入refresh_manual_cards")
+        print("feed:", hasattr(self, 'feed_pump_cards'))
+        print("drain:", hasattr(self, 'drain_pump_cards'))
+
+        if not hasattr(self, 'feed_pump_cards') or not hasattr(self, 'drain_pump_cards'):
+            print("这里return了")
             return
-        for w in self.manual_cards.winfo_children():
+
+        for w in self.feed_pump_cards.winfo_children():
+            w.destroy()
+        for w in self.drain_pump_cards.winfo_children():
             w.destroy()
         self.manual_freq_entries = {}
         if not pumps:
-            ttk.Label(self.manual_cards, text='当前没有水泵，请先新增泵站或在水泵管理中配置水泵。',
-                      foreground='red').grid(row=0, column=0, padx=10, pady=10, sticky='w')
             return
-        try:
-            screen_w = self.root.winfo_width() or self.root.winfo_screenwidth()
-        except Exception:
-            screen_w = 1366
-        cols = 3 if screen_w >= 1500 else 2
-        offset = 0
-        if self.is_auto_mode():
-            ttk.Label(self.manual_cards, text='当前泵站处于自动模式，手动操作按钮已锁定；切换到手动模式后才能操作。',
-                      foreground='red', font=('Microsoft YaHei', 10, 'bold')).grid(row=0, column=0, columnspan=cols,
-                                                                                   padx=10, pady=8, sticky='w')
-            offset = 1
-        btn_state = 'disabled' if self.is_auto_mode() else 'normal'
-        for idx, p in enumerate(pumps):
-            row = idx // cols + offset;
-            col = idx % cols
-            frame = ttk.LabelFrame(self.manual_cards, text=f"{p['pump_code']}  {p['pump_name']}")
-            frame.grid(row=row, column=col, padx=4, pady=4, sticky='nsew')
-            feed_txt = ''
-            if p['pump_type'] == 'centrifugal':
-                fp = self.row('SELECT pump_code FROM pump WHERE id=?', (p['feed_pump_id'],)) if p[
-                    'feed_pump_id'] else None
-                feed_txt = '  给水泵：' + (fp['pump_code'] if fp else '未设置')
-            ttk.Label(frame, text=f"{PUMP_TYPE_LABEL.get(p['pump_type'], p['pump_type'])}{feed_txt}",
-                      font=('Microsoft YaHei', 9)).grid(row=0, column=0, columnspan=6, sticky='w', padx=5, pady=(3, 1))
-            ttk.Label(frame,
-                      text=f"{self.pump_state_icon_text(p)}   反馈:{float(p['frequency'] or 0):.1f}Hz   电流:{float(p['current'] or 0):.1f}A",
-                      font=('Microsoft YaHei', 9, 'bold')).grid(row=1, column=0, columnspan=6, sticky='w', padx=4,
-                                                                pady=1)
-            ttk.Label(frame, text='设定Hz').grid(row=2, column=0, padx=3, pady=4, sticky='e')
-            e = ttk.Entry(frame, width=7)
-            e.insert(0, f"{float(p['set_frequency'] or p['frequency'] or p['start_frequency'] or 30):.1f}")
-            e.grid(row=2, column=1, padx=3, pady=4, sticky='w')
-            self.manual_freq_entries[p['id']] = e
-            ttk.Button(frame, text='▶ 启动', style='Success.TButton', state=btn_state,
-                       command=lambda pid=p['id']: self.manual_start_pid(pid)).grid(row=2, column=2, padx=2, pady=3,
-                                                                                    sticky='ew')
-            ttk.Button(frame, text='■ 停止', style='Danger.TButton', state=btn_state,
-                       command=lambda pid=p['id']: self.manual_stop_pid(pid)).grid(row=2, column=3, padx=2, pady=3,
-                                                                                   sticky='ew')
-            ttk.Button(frame, text='⚙ 设频', style='Primary.TButton', state=btn_state,
-                       command=lambda pid=p['id']: self.manual_setfreq_pid(pid)).grid(row=2, column=4, padx=2, pady=3,
-                                                                                      sticky='ew')
-            ttk.Button(frame, text='检修', state=btn_state,
-                       command=lambda pid=p['id']: self.toggle_pump_field_pid(pid, 'maintenance')).grid(row=3, column=0,
-                                                                                                        padx=2, pady=3,
-                                                                                                        sticky='ew')
-            ttk.Button(frame, text='故障', state=btn_state,
-                       command=lambda pid=p['id']: self.toggle_pump_field_pid(pid, 'manual_fault')).grid(row=3,
-                                                                                                         column=1,
-                                                                                                         padx=2, pady=3,
-                                                                                                         sticky='ew')
-            ttk.Button(frame, text='备用', state=btn_state,
-                       command=lambda pid=p['id']: self.toggle_pump_field_pid(pid, 'standby')).grid(row=3, column=2,
-                                                                                                    padx=2, pady=3,
-                                                                                                    sticky='ew')
-            for cc in range(6):
-                frame.columnconfigure(cc, weight=1)
-        for cc in range(cols):
-            self.manual_cards.columnconfigure(cc, weight=1)
+        feed_pumps = [p for p in pumps if p['pump_type'] == 'feed']
+        drain_pumps = [p for p in pumps if p['pump_type'] != 'feed']
+
+        self.feed_pump_title.config(text=f'水泵控制（母管：（A1~A{len(drain_pumps)}）')
+        for p in feed_pumps:
+            self._manual_pump_card(self.feed_pump_cards, p)
+        self.drain_pump_title.config(text=f'排水泵控制（集水池：（JP1~JP{len(drain_pumps)}）')
+        for p in drain_pumps:
+            self._manual_pump_card(self.drain_pump_cards, p)
 
     def _manual_freq_value(self, pid=None):
         try:
