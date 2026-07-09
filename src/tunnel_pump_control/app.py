@@ -52,6 +52,17 @@ class App(tk.Tk):
         self.twin_preview_photo = None;
         self.twin_httpd = None;
         self.twin_http_port = 8765
+        # ============================
+        # V5.8 数字孪生驾驶舱变量
+        # ============================
+        self.cockpit_asset_tree = None
+        self.cockpit_glb_frame = None
+        self.cockpit_device_panel = None
+        self.cockpit_bottom_bar = None
+        self.cockpit_selected_device = None
+        self.cockpit_device_labels = {}
+        self.cockpit_alarm_box = None
+        self.cockpit_browser = None
         self.create_layout()
         self.refresh_all()
         self.after(1000, self.periodic)
@@ -114,18 +125,20 @@ class App(tk.Tk):
         self.nb.pack(fill='both', expand=True, padx=4, pady=4)
         self.pages = {}
         tab_icons = {
-            '首页总览': '🏠 首页总览', '泵站监控': '📊 泵站监控', '泵站管理': '🏭 泵站管理',
+            '数字孪生驾驶舱':
+    '🌐 数字孪生驾驶舱','首页总览': '🏠 首页总览', '泵站监控': '📊 泵站监控', '泵站管理': '🏭 泵站管理',
             '水泵管理': '🔵 水泵管理', '母管管理': '🟩 母管管理', '仪表管理': '📟 仪表管理',
             '模型示意': '🤖 模型示意', '手动控制': '🕹 手动控制',
             '参数配置': '⚙ 参数配置', '通讯设置': '🌐 通讯设置', '变量/点位管理': '🔢 变量点位',
             '视频监控': '🎥 视频监控', '三维孪生': '🌐 三维孪生', '数据绑定': '🔗 数据绑定', '报表导出': '📄 报表导出',
             '日志': '📋 日志'
         }
-        for name in ['首页总览', '泵站监控', '泵站管理', '水泵管理', '母管管理', '仪表管理', '模型示意', '手动控制',
+        for name in [ '数字孪生驾驶舱','首页总览', '泵站监控', '泵站管理', '水泵管理', '母管管理', '仪表管理', '模型示意', '手动控制',
                      '参数配置', '通讯设置', '变量/点位管理', '视频监控', '三维孪生', '数据绑定', '报表导出', '日志']:
             frame = ttk.Frame(self.nb)
             self.nb.add(frame, text=tab_icons.get(name, name))
             self.pages[name] = frame
+        self.build_twin_cockpit_page()
         self.build_dashboard()
         self.build_monitor()
         self.build_station_page()
@@ -143,6 +156,14 @@ class App(tk.Tk):
         self.build_report_page()
         self.build_log_page()
         self._update_datetime_label()
+        # V5.8 默认进入数字孪生驾驶舱
+
+        self.after(
+            300,
+            lambda: self.nb.select(
+                self.pages['数字孪生驾驶舱']
+            )
+        )
 
     def _build_header(self):
         # 顶部标题栏
@@ -189,7 +210,57 @@ class App(tk.Tk):
         self._update_datetime_label()
         self.refresh_realtime()
         self.backend_lbl.config(text=f'后端服务：● 正常', fg="#21e56d")
+        self.refresh_twin_cockpit()
         self.after(1000, self.periodic)
+
+    def refresh_twin_cockpit(self):
+        try:
+            st = self.get_station()
+            if st:
+                self.cockpit_station_label.config(
+                    text=
+                    f"泵站:{st['station_name']}"
+                )
+            self.cockpit_time_label.config(
+                text=datetime.datetime.now().strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            )
+            s = self.db.dashboard_summary()
+            values = {
+                "液位":
+                    f"{st['current_level']:.2f}m"
+                    if st else "-",
+                "总流量":
+                    f"{s.get('total_flow', 0):.2f}",
+                "运行泵数":
+                    str(s.get('running', 0)),
+                "总功率":
+                    f"{s.get('total_power', 0):.1f}",
+                "母线电压":
+                    f"{s.get('total_voltage', 0):.1f}",
+                "最新事件":
+                    "正常"
+
+            }
+            mapping = {
+                "level": "level",
+                "flow": "flow",
+                "running": "pump",
+                "power": "power",
+                "voltage": "voltage",
+                "event": "event"
+
+            }
+            for k, v in values.items():
+                key = mapping.get(k)
+                if key in self.cockpit_kpi_cards:
+                    self.cockpit_kpi_cards[key]["value"].config(
+                        text=str(v)
+                    )
+
+        except Exception:
+            pass
 
     def sid(self):
         return self.current_station_id
@@ -374,6 +445,457 @@ class App(tk.Tk):
         self.refresh_twin_station_combo()
         self._twin_binding_refresh_station_combo()
 
+    # =====================================================
+    # V5.8 数字孪生驾驶舱主页
+    # =====================================================
+
+    def build_twin_cockpit_page(self):
+        f = self.pages['数字孪生驾驶舱']
+        for w in f.winfo_children():
+            w.destroy()
+        bg = "#031326"
+        root = tk.Frame(
+            f,
+            bg=bg
+        )
+        root.pack(
+            fill="both",
+            expand=True
+        )
+        # ============================
+        # 顶部状态栏
+        # ============================
+        # =====================================================
+        # V5.8 驾驶舱顶部页签栏
+        # 参考手动控制页面风格
+        # =====================================================
+
+        header = tk.Frame(
+            root,
+            bg="#041a34",
+            height=42,
+            highlightbackground="#0b5fa5",
+            highlightthickness=1
+        )
+
+        header.pack(
+            fill="x",
+            padx=8,
+            pady=(6, 4)
+        )
+
+        header.pack_propagate(False)
+        # 中间泵站信息
+        self.cockpit_station_label = tk.Label(
+            header,
+            text="当前泵站：-",
+            font=("Microsoft YaHei", 11, "bold"),
+            bg="#041a34",
+            fg="#ffffff"
+        )
+
+        self.cockpit_station_label.pack(
+            side="left",
+            padx=30
+        )
+
+        # 状态标签
+
+        self.cockpit_status_label = tk.Label(
+            header,
+            text="● 自动模式  ● 软件控制  ● 通讯正常",
+            font=("Microsoft YaHei", 10),
+            bg="#041a34",
+            fg="#21e56d"
+        )
+
+        self.cockpit_status_label.pack(
+            side="left"
+        )
+
+        # 右侧时间
+
+        self.cockpit_time_label = tk.Label(
+            header,
+            text="",
+            font=("Microsoft YaHei", 9),
+            bg="#041a34",
+            fg="#d9ecff"
+        )
+
+        self.cockpit_time_label.pack(
+            side="right",
+            padx=15
+        )
+
+        # ============================
+        # 主体三栏
+        # ============================
+
+        body = tk.Frame(
+            root,
+            bg=bg
+        )
+
+        body.pack(
+            fill="both",
+            expand=True
+        )
+
+        # ===========================
+        # V5.8 三栏等高布局
+        # ===========================
+
+        body.grid_columnconfigure(
+            0,
+            minsize=300,
+            weight=0
+        )
+        body.grid_columnconfigure(
+            1,
+            weight=1
+        )
+        body.grid_columnconfigure(
+            2,
+            minsize=300,
+            weight=0
+        )
+        body.grid_rowconfigure(
+            0,
+            weight=1
+        )
+        # ============================
+        # 左资产树
+        # ============================
+
+        left = tk.Frame(
+            body,
+            bg="#071f3d"
+        )
+
+        left.grid(
+            row=0,
+            column=0,
+            sticky="nsew",
+            padx=5,
+            pady=5
+        )
+        left.grid_rowconfigure(
+            0,
+            weight=1
+        )
+        tk.Label(
+            left,
+            text="设备资产树",
+            bg="#071f3d",
+            fg="#ffffff",
+            font=("Microsoft YaHei", 11, "bold")
+        ).pack(
+            fill="x"
+        )
+
+        self.cockpit_asset_tree = ttk.Treeview(
+            left
+        )
+        self.cockpit_asset_tree.pack(
+            fill="both",
+            expand=True,
+            padx=8,
+            pady=8
+        )
+        self.cockpit_asset_tree.bind(
+            "<<TreeviewSelect>>",
+            self.cockpit_select_device
+        )
+        # ============================
+        # 中央GLB
+        # ============================
+
+        center = tk.Frame(
+            body,
+            bg="#020814"
+        )
+
+        center.grid(
+            row=0,
+            column=1,
+            sticky="nsew",
+            padx=5,
+            pady=5
+        )
+
+        center.grid_rowconfigure(
+            1,
+            weight=1
+        )
+
+        center.grid_columnconfigure(
+            0,
+            weight=1
+        )
+
+        self.cockpit_glb_frame = center
+
+        tk.Label(
+            center,
+            text="GLB数字孪生场景",
+            bg="#020814",
+            fg="#8fd3ff",
+            font=("Microsoft YaHei", 12, "bold")
+        ).pack()
+
+        self.cockpit_glb_canvas = tk.Canvas(
+            center,
+            bg="#06172d"
+        )
+
+        self.cockpit_glb_canvas.pack(
+            fill="both",
+            expand=True,
+            padx=8,
+            pady=8
+        )
+
+        # ============================
+        # 右设备面板
+        # ============================
+
+        right = tk.Frame(
+            body,
+            bg="#071f3d"
+        )
+
+        right.grid(
+            row=0,
+            column=2,
+            sticky="nsew",
+            padx=5,
+            pady=5
+        )
+
+        right.grid_rowconfigure(
+            1,
+            weight=1
+        )
+        right.grid_columnconfigure(
+            0,
+            weight=1
+        )
+        self.cockpit_device_panel = right
+
+        tk.Label(
+            right,
+            text="设备信息",
+            bg="#071f3d",
+            fg="#ffffff",
+            font=("Microsoft YaHei", 12, "bold")
+        ).pack()
+
+        self.cockpit_info = tk.Text(
+            right,
+            bg="#06172d",
+            fg="#d9ecff",
+            font=(
+                "Microsoft YaHei",
+                10
+            ),
+            relief="flat"
+        )
+
+        self.cockpit_info.pack(
+            fill="both",
+            expand=True,
+            padx=8,
+            pady=8
+        )
+
+        # ============================
+        # 底部状态条
+        # ============================
+
+        # =================================================
+        # V5.8 底部 KPI 卡片区域
+        # =================================================
+
+        bottom = tk.Frame(
+            root,
+            bg="#031326",
+            height=90
+        )
+
+        bottom.pack(
+            fill="x",
+            padx=10,
+            pady=(0, 10)
+        )
+
+        self.cockpit_bottom_bar = bottom
+
+        cards = [
+            (
+                "level",
+                "💧",
+                "液位",
+                "#21e56d"
+            ),
+            (
+                "flow",
+                "◔",
+                "总流量",
+                "#1e9bff"
+            ),
+            (
+                "pump",
+                "▶",
+                "运行泵数",
+                "#21e56d"
+            ),
+            (
+                "power",
+                "Ω",
+                "总功率",
+                "#ffc526"
+            ),
+
+            (
+                "voltage",
+                "⌁",
+                "母线电压",
+                "#1e9bff"
+            ),
+
+            (
+                "event",
+                "⚠",
+                "最新事件",
+                "#ff4136"
+            )
+
+        ]
+        self.cockpit_kpi_cards = {}
+
+        for key, icon, title, color in cards:
+            card = self._dash_kpi(
+                bottom,
+                icon,
+                title,
+                "-",
+                "",
+                color
+            )
+
+            card["box"].pack(
+                side="left",
+                fill="both",
+                expand=True,
+                padx=5,
+                pady=5
+            )
+
+            self.cockpit_kpi_cards[key] = card
+        self.refresh_cockpit_asset_tree()
+
+    def refresh_cockpit_asset_tree(self):
+        tree = self.cockpit_asset_tree
+        tree.delete(
+            *tree.get_children()
+        )
+        root = tree.insert(
+            "",
+            "end",
+            text="泵站"
+        )
+        pumps = self.rows(
+            """
+            SELECT pump_code, pump_name
+            FROM pump
+            WHERE station_id = ?
+            """,
+            (self.sid(),)
+        )
+        pump_node = tree.insert(
+            root,
+            "end",
+            text="主泵"
+        )
+
+        for p in pumps:
+            tree.insert(
+                pump_node,
+                "end",
+                text=p["pump_code"]
+            )
+
+        pipe_node = tree.insert(
+            root,
+            "end",
+            text="母管"
+        )
+
+        for p in self.rows(
+                """
+                SELECT pipe_code
+                FROM main_pipe
+                WHERE station_id = ?
+                """,
+                (self.sid(),)
+        ):
+            tree.insert(
+                pipe_node,
+                "end",
+                text=p["pipe_code"]
+            )
+
+        tree.insert(
+            root,
+            "end",
+            text="液位计"
+        )
+
+        tree.insert(
+            root,
+            "end",
+            text="摄像头"
+        )
+
+    def cockpit_select_device(self, event=None):
+
+        sel = self.cockpit_asset_tree.selection()
+
+        if not sel:
+            return
+
+        name = self.cockpit_asset_tree.item(
+            sel[0],
+            "text"
+        )
+
+        self.cockpit_selected_device = name
+
+        self.cockpit_info.delete(
+            "1.0",
+            "end"
+        )
+
+        self.cockpit_info.insert(
+            "end",
+            f"""
+    设备:
+    {name}
+
+
+    状态:
+    等待实时数据
+
+
+    控制:
+    自动
+
+
+    报警:
+    无
+    """
+        )
     # Dashboard
     def build_dashboard(self):
         """首页总览：深蓝色泵站驾驶舱界面。"""

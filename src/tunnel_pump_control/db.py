@@ -59,6 +59,95 @@ class Database:
     def init_schema(self):
         c = self.conn.cursor()
         c.executescript('''
+        CREATE TABLE IF NOT EXISTS twin_model_asset (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            station_id INTEGER NOT NULL,
+            model_name TEXT NOT NULL,     
+            file_path TEXT NOT NULL,
+            preview_path TEXT,
+            version TEXT DEFAULT '1.0',
+            is_active INTEGER DEFAULT 0,
+            file_size INTEGER DEFAULT 0,
+            node_count INTEGER DEFAULT 0,
+            remark TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            UNIQUE(station_id,model_name)
+        );
+        CREATE TABLE IF NOT EXISTS twin_model_node (
+        
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        
+            model_id INTEGER NOT NULL,
+        
+            node_name TEXT NOT NULL,
+        
+            node_path TEXT,
+        
+            parent_name TEXT,
+        
+            node_type TEXT,
+            depth INTEGER DEFAULT 0,
+            visible INTEGER DEFAULT 1,
+        
+            created_at TEXT
+        
+        );
+        CREATE INDEX IF NOT EXISTS idx_twin_node_model ON twin_model_node(model_id);
+        CREATE TABLE IF NOT EXISTS twin_node_binding (
+
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+        
+            station_id INTEGER NOT NULL,
+            model_id INTEGER NOT NULL,
+            node_name TEXT NOT NULL,
+            object_type TEXT NOT NULL,
+            object_id INTEGER,
+            object_code TEXT,
+            role TEXT DEFAULT 'body',
+            clickable INTEGER DEFAULT 1,
+            animation_type TEXT DEFAULT 'none',
+            highlight_rule TEXT DEFAULT 'status',
+            visible INTEGER DEFAULT 1,
+            remark TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_twin_binding_station
+        ON twin_node_binding(station_id);
+        CREATE TABLE IF NOT EXISTS twin_hotspot (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            station_id INTEGER NOT NULL,
+            model_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            object_type TEXT,
+            object_id INTEGER,
+            node_name TEXT,
+            position_x REAL DEFAULT 0,
+            position_y REAL DEFAULT 0,
+            position_z REAL DEFAULT 0,
+            icon TEXT,
+            visible INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS twin_camera_bookmark (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            station_id INTEGER NOT NULL,
+            model_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            position_x REAL NOT NULL,
+            position_y REAL NOT NULL,
+            position_z REAL NOT NULL,
+            target_x REAL NOT NULL,
+            target_y REAL NOT NULL,
+            target_z REAL NOT NULL,
+            fov REAL DEFAULT 45,
+            sort_order INTEGER DEFAULT 0,
+            is_default INTEGER DEFAULT 0,
+            created_at TEXT,
+            updated_at TEXT
+        );
         CREATE TABLE IF NOT EXISTS system_info (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             software_name TEXT, software_version TEXT, copyright_owner TEXT, build_time TEXT, remark TEXT
@@ -484,6 +573,334 @@ class Database:
         self.conn.execute("UPDATE pump_station SET data_source_mode='simulation' WHERE data_source_mode IN ('模拟','模拟数据','仿真')")
         self.conn.execute("UPDATE pump_station SET data_source_mode='realtime' WHERE data_source_mode IN ('实时采集','实际采集','真实采集')")
         self.conn.execute("UPDATE pump_station SET data_source_mode='simulation' WHERE data_source_mode NOT IN ('simulation','realtime')")
+        # =================================================
+        # V5.8 数字孪生数据库迁移
+        # =================================================
+
+        # 老版本不存在时创建孪生资产表
+
+        self.conn.execute("""
+                          CREATE TABLE IF NOT EXISTS twin_model_asset
+                          (
+
+                              id
+                              INTEGER
+                              PRIMARY
+                              KEY
+                              AUTOINCREMENT,
+
+                              station_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              model_name
+                              TEXT
+                              NOT
+                              NULL,
+
+                              file_path
+                              TEXT
+                              NOT
+                              NULL,
+
+                              preview_path
+                              TEXT,
+
+                              version
+                              TEXT
+                              DEFAULT
+                              '1.0',
+
+                              is_active
+                              INTEGER
+                              DEFAULT
+                              0,
+
+                              file_size
+                              INTEGER
+                              DEFAULT
+                              0,
+
+                              node_count
+                              INTEGER
+                              DEFAULT
+                              0,
+
+                              remark
+                              TEXT,
+
+                              created_at
+                              TEXT,
+
+                              updated_at
+                              TEXT
+
+                          )
+                          """)
+
+        self.conn.execute("""
+                          CREATE TABLE IF NOT EXISTS twin_model_node
+                          (
+
+                              id
+                              INTEGER
+                              PRIMARY
+                              KEY
+                              AUTOINCREMENT,
+
+                              model_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              node_name
+                              TEXT
+                              NOT
+                              NULL,
+
+                              node_path
+                              TEXT,
+
+                              parent_name
+                              TEXT,
+
+                              node_type
+                              TEXT,
+
+                              depth
+                              INTEGER
+                              DEFAULT
+                              0,
+
+                              visible
+                              INTEGER
+                              DEFAULT
+                              1,
+
+                              created_at
+                              TEXT
+
+                          )
+                          """)
+
+        self.conn.execute("""
+                          CREATE TABLE IF NOT EXISTS twin_node_binding
+                          (
+
+                              id
+                              INTEGER
+                              PRIMARY
+                              KEY
+                              AUTOINCREMENT,
+
+                              station_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              model_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              node_name
+                              TEXT
+                              NOT
+                              NULL,
+
+                              object_type
+                              TEXT
+                              NOT
+                              NULL,
+
+                              object_id
+                              INTEGER,
+
+                              object_code
+                              TEXT,
+
+                              role
+                              TEXT
+                              DEFAULT
+                              'body',
+
+                              clickable
+                              INTEGER
+                              DEFAULT
+                              1,
+
+                              animation_type
+                              TEXT
+                              DEFAULT
+                              'none',
+
+                              highlight_rule
+                              TEXT
+                              DEFAULT
+                              'status',
+
+                              visible
+                              INTEGER
+                              DEFAULT
+                              1,
+
+                              remark
+                              TEXT,
+
+                              created_at
+                              TEXT,
+
+                              updated_at
+                              TEXT
+
+                          )
+                          """)
+
+        self.conn.execute("""
+                          CREATE TABLE IF NOT EXISTS twin_hotspot
+                          (
+
+                              id
+                              INTEGER
+                              PRIMARY
+                              KEY
+                              AUTOINCREMENT,
+
+                              station_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              model_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              name
+                              TEXT
+                              NOT
+                              NULL,
+
+                              object_type
+                              TEXT,
+
+                              object_id
+                              INTEGER,
+
+                              node_name
+                              TEXT,
+
+                              position_x
+                              REAL
+                              DEFAULT
+                              0,
+
+                              position_y
+                              REAL
+                              DEFAULT
+                              0,
+
+                              position_z
+                              REAL
+                              DEFAULT
+                              0,
+
+                              icon
+                              TEXT,
+
+                              visible
+                              INTEGER
+                              DEFAULT
+                              1,
+
+                              created_at
+                              TEXT,
+
+                              updated_at
+                              TEXT
+
+                          )
+                          """)
+
+        self.conn.execute("""
+                          CREATE TABLE IF NOT EXISTS twin_camera_bookmark
+                          (
+
+                              id
+                              INTEGER
+                              PRIMARY
+                              KEY
+                              AUTOINCREMENT,
+
+                              station_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              model_id
+                              INTEGER
+                              NOT
+                              NULL,
+
+                              name
+                              TEXT
+                              NOT
+                              NULL,
+
+                              position_x
+                              REAL
+                              NOT
+                              NULL,
+
+                              position_y
+                              REAL
+                              NOT
+                              NULL,
+
+                              position_z
+                              REAL
+                              NOT
+                              NULL,
+
+                              target_x
+                              REAL
+                              NOT
+                              NULL,
+
+                              target_y
+                              REAL
+                              NOT
+                              NULL,
+
+                              target_z
+                              REAL
+                              NOT
+                              NULL,
+
+                              fov
+                              REAL
+                              DEFAULT
+                              45,
+
+                              sort_order
+                              INTEGER
+                              DEFAULT
+                              0,
+
+                              is_default
+                              INTEGER
+                              DEFAULT
+                              0,
+
+                              created_at
+                              TEXT,
+
+                              updated_at
+                              TEXT
+
+                          )
+                          """)
         self.conn.commit()
 
     def ensure_seed(self):
@@ -1322,3 +1739,98 @@ class Database:
             w=csv.writer(f); w.writerow(headers)
             for row in rows: w.writerow(row)
         return path
+
+    def add_twin_model_asset(
+            self,
+            station_id,
+            model_name,
+            file_path):
+
+        size = os.path.getsize(file_path) \
+            if os.path.exists(file_path) else 0
+
+        cur = self.execute("""
+                           INSERT INTO twin_model_asset
+                           (station_id,
+                            model_name,
+                            file_path,
+                            file_size,
+                            created_at,
+                            updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?)
+                         """,
+                           (
+                               station_id,
+                               model_name,
+                               file_path,
+                               size,
+                               now(),
+                               now()
+                           ))
+
+        return cur.lastrowid
+
+    def save_twin_nodes(self, model_id,nodes):
+        self.execute(
+            "DELETE FROM twin_model_node WHERE model_id=?",
+            (model_id,)
+        )
+        for n in nodes:
+            self.execute("""
+                         INSERT INTO twin_model_node
+                         (model_id,
+                          node_name,
+                          node_path,
+                          parent_name,
+                          node_type,
+                          depth,
+                          created_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)
+                         """,
+                         (
+                             model_id,
+                             n.get("name"),
+                             n.get("path"),
+                             n.get("parent"),
+                             n.get("type"),
+                             n.get("depth", 0),
+                             now()
+                         ))
+
+    def get_twin_binding(self, station_id):
+        return self.query(
+            """
+            SELECT *
+            FROM twin_node_binding
+            WHERE station_id = ?
+            """,
+            (station_id,)
+        )
+
+    def save_twin_binding(self, data):
+        self.execute("""
+                     INSERT INTO twin_node_binding
+                     (station_id,
+                      model_id,
+                      node_name,
+                      object_type,
+                      object_id,
+                      object_code,
+                      role,
+                      animation_type,
+                      created_at,
+                      updated_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     """,
+                     (
+                         data["station_id"],
+                         data["model_id"],
+                         data["node_name"],
+                         data["object_type"],
+                         data.get("object_id"),
+                         data.get("object_code"),
+                         data.get("role", "body"),
+                         data.get("animation_type", "none"),
+                         now(),
+                         now()
+                     ))
