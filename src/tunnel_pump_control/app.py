@@ -851,7 +851,15 @@ class App(tk.Tk):
             arr.append(max(val, 0.0))
         return arr
 
-    def _draw_dashboard_twin(self, pumps, feed_pumps, pipes, lv1, lv2):
+    def _draw_dashboard_twin(self, pumps, feed_pumps, pipes, lv1, lv2, pump_relations=None):
+        """
+        pumps,
+        feed_pumps,
+        pipes,
+        lv1,
+        lv2,
+        pump_relations=None 主泵与母管,给水泵的关联关系
+        """
         c = self.dash_twin_canvas
         c.delete('all')
         c.update_idletasks()
@@ -868,29 +876,29 @@ class App(tk.Tk):
         c.create_polygon(20, h * 0.45, w * 0.22, h * 0.34, w * 0.24, h * 0.69, 20, h * 0.78,
                          fill='#0b4d79', outline='#168ce4')
         c.create_text(w * 0.12, h * 0.39, text='集水池', fill='#c9e6ff', font=('Microsoft YaHei', 10, 'bold'))
-        c.create_rectangle(w * 0.38, 12, w * 0.68, 62, fill='#1b2f43', outline='#586e7d')
-        for i in range(9):
-            x = w * 0.39 + i * (w * 0.27 / 9)
-            c.create_rectangle(x, 18, x + w * 0.022, 58, fill='#31455a', outline='#7791aa')
-            c.create_rectangle(x + 5, 28, x + w * 0.022 - 5, 37, fill='#76c7ff', outline='')
-        c.create_text(w * 0.53, 72, text='母管（A1~P8）', fill='#e6f4ff', font=('Microsoft YaHei', 10, 'bold'))
-        # 管道
-        upper_y = h * 0.35
-        lower_y = h * 0.67
+
+        pipe_count = max(len(pipes), 2)
+        pipe_y_positions = [h * 0.35 + i * (h * 0.40) / pipe_count for i in range(pipe_count)]
+
         left_x = w * 0.22
         right_x = w * 0.90
-        c.create_line(left_x, upper_y, right_x, upper_y, fill='#0c69b4', width=22, capstyle='round')
-        c.create_line(left_x, upper_y, right_x, upper_y, fill='#23a8ff', width=8, capstyle='round')
-        c.create_line(left_x * 0.82, lower_y, right_x, lower_y, fill='#0d7e4a', width=20, capstyle='round')
-        c.create_line(left_x * 0.82, lower_y, right_x, lower_y, fill='#25e073', width=7, capstyle='round')
-        c.create_line(right_x, upper_y, w - 35, upper_y + 34, fill='#0c69b4', width=22, capstyle='round')
-        c.create_line(right_x, upper_y, w - 35, upper_y + 34, fill='#23a8ff', width=8, capstyle='round')
-        c.create_line(right_x, lower_y, w - 35, lower_y, fill='#0d7e4a', width=20, capstyle='round')
-        c.create_line(right_x, lower_y, w - 35, lower_y, fill='#25e073', width=7, capstyle='round')
-        c.create_text(w - 58, upper_y + 28, text='出水方向', fill='#bfe8ff', font=('Microsoft YaHei', 9, 'bold'))
-        c.create_polygon(w - 36, upper_y + 34, w - 58, upper_y + 20, w - 58, upper_y + 48, fill='#58bcff')
-        c.create_polygon(w - 36, lower_y, w - 58, lower_y - 14, w - 58, lower_y + 14, fill='#5cff9c')
-        # 传感器牌
+
+        for idx, pipe_y in enumerate(pipe_y_positions):
+            pipe_name = pipes[idx]['pipe_code'] if idx < len(pipes) else f"母管{idx + 1}"
+            pipe_color = '#0c69b4' if idx == 0 else '#0d7e4a'
+            pipe_light = '#23a8ff' if idx == 0 else '#25e073'
+            c.create_line(left_x, pipe_y, right_x, pipe_y, fill=pipe_color, width=22, capstyle='round')
+            c.create_line(left_x, pipe_y, right_x, pipe_y, fill=pipe_light, width=8, capstyle='round')
+            c.create_line(right_x, pipe_y, w - 35, pipe_y + 34, fill=pipe_color, width=22, capstyle='round')
+            c.create_line(right_x, pipe_y, w - 35, pipe_y + 34, fill=pipe_light, width=8, capstyle='round')
+            c.create_text(w * 0.38 + idx * (w * 0.2) if pipe_count > 1 else w * 0.53, pipe_y + 28,
+                          text=pipe_name, fill='#e6f4ff', font=('Microsoft YaHei', 10, 'bold'))
+
+        c.create_text(w - 58, pipe_y_positions[0] + 28, text='出水方向', fill='#bfe8ff',
+                      font=('Microsoft YaHei', 9, 'bold'))
+        c.create_polygon(w - 36, pipe_y_positions[0] + 34, w - 58, pipe_y_positions[0] + 20, w - 58,
+                         pipe_y_positions[0] + 48, fill='#58bcff')
+
         flow_a = self._dash_float(self.safe_get(pipes[0], 'estimated_running_flow', 13.62) if pipes else 13.62)
         press_a = self._dash_float(self.safe_get(pipes[0], 'pressure', 0.63) if pipes else 0.63)
         flow_b = self._dash_float(
@@ -902,53 +910,103 @@ class App(tk.Tk):
             c.create_text(x + 6, y + 12, text=title, fill='#cfefff', font=('Consolas', 9, 'bold'), anchor='w')
             c.create_text(x + 6, y + 30, text=value, fill=color, font=('Consolas', 10, 'bold'), anchor='w')
 
-        tag(w * 0.66, upper_y - 72, 'FT-A', f'{flow_a:.2f}m³/s', '#25e0ff')
-        tag(w * 0.76, upper_y - 60, 'PT-A', f'{press_a:.2f}MPa', '#5cff9c')
-        tag(w * 0.77, lower_y - 66, 'FT-B', f'{flow_b:.2f}m³/s', '#ffc526')
-        tag(w * 0.88, lower_y - 60, 'PT-B', f'{press_b:.2f}MPa', '#5cff9c')
-        tag(w * 0.24, upper_y - 78, 'LT01', f'{(lv1 or 0):.2f}m', '#58ff9d')
-        tag(w * 0.13, lower_y - 88, 'LT02', f'{(lv2 or 0):.2f}m', '#4bb7ff')
-        # 水泵
+        tag(w * 0.66, pipe_y_positions[0] - 72, 'FT-A', f'{flow_a:.2f}m³/s', '#25e0ff')
+        tag(w * 0.76, pipe_y_positions[0] - 60, 'PT-A', f'{press_a:.2f}MPa', '#5cff9c')
+        if len(pipe_y_positions) > 1:
+            tag(w * 0.77, pipe_y_positions[1] - 66, 'FT-B', f'{flow_b:.2f}m³/s', '#ffc526')
+            tag(w * 0.88, pipe_y_positions[1] - 60, 'PT-B', f'{press_b:.2f}MPa', '#5cff9c')
+        tag(w * 0.24, pipe_y_positions[0] - 78, 'LT01', f'{(lv1 or 0):.2f}m', '#58ff9d')
+        tag(w * 0.13, pipe_y_positions[-1] - 88, 'LT02', f'{(lv2 or 0):.2f}m', '#4bb7ff')
+
         pump_area_left = w * 0.25
         pump_area_right = w * 0.79
 
-        def draw_pump(x, y, code, icon, color, upper=True):
-            c.create_line(x, y - 45 if upper else y - 36, x, upper_y if upper else lower_y,
-                          fill='#8bc6e8' if upper else '#85f0a9', width=5)
+        def draw_pump(x, y, code, icon, color, pipe_y):
+            c.create_line(x, y - 45, x, pipe_y, fill='#8bc6e8', width=5)
             c.create_oval(x - 20, y - 18, x + 20, y + 18, fill='#1b354d', outline='#7da5c5', width=2)
-            c.create_rectangle(x - 10, y - 26, x + 10, y - 14, fill='#2f4b65', outline='#8aaac6')
+            c.create_rectangle(x - 10, y - 26, x + 10, y - 14, fill='#25e073', outline='#8aaac6')
             c.create_oval(x - 25, y + 12, x + 25, y + 28, outline=color, width=4)
             c.create_text(x, y + 45, text=code, fill='#eaf6ff', font=('Consolas', 10, 'bold'))
             c.create_text(x, y + 24, text=icon, fill=color, font=('Microsoft YaHei', 13, 'bold'))
+            return x, y
+
+        def draw_feed_pump(x, y, code, icon, color, main_pump_x, main_pump_y):
+            c.create_line(x, y - 36, x, pipe_y_positions[-1], fill='#85f0a9', width=5)
+            c.create_oval(x - 20, y - 18, x + 20, y + 18, fill='#1b354d', outline='#7da5c5', width=2)
+            c.create_rectangle(x - 10, y - 26, x + 10, y - 14, fill='#25e073', outline='#8aaac6')
+            c.create_oval(x - 25, y + 12, x + 25, y + 28, outline=color, width=4)
+            c.create_text(x, y + 45, text=code, fill='#eaf6ff', font=('Consolas', 10, 'bold'))
+            c.create_text(x, y + 24, text=icon, fill=color, font=('Microsoft YaHei', 13, 'bold'))
+            c.create_line(x, y - 18, main_pump_x, main_pump_y + 18, fill='#ffc526', width=3, dash=(4, 4))
+            return x, y
 
         pump_count = len(pumps)
+        pump_positions = {}
+
         if pump_count > 0:
             pump_gap = (pump_area_right - pump_area_left) / max(pump_count - 1, 1)
             for i in range(pump_count):
                 p = pumps[i]
                 icon, color, text = self._dash_pump_state(p, standby=True)
                 code = self._dash_pump_code(p, 'P', i + 1)
-                draw_pump(pump_area_left + i * pump_gap, h * 0.50, code, icon, color, upper=True)
+                px = pump_area_left + i * pump_gap
+                py = h * 0.50
+                draw_pump(px, py, code, icon, color, pipe_y_positions[0])
+                pump_positions[p['id']] = (px, py)
         else:
             c.create_text(w * 0.51, h * 0.52, text='暂无主泵', fill='#8a929c', font=('Microsoft YaHei', 11, 'bold'))
 
-        c.create_text(w * 0.51, h * 0.58, text='母管（B路）', fill='#e6f4ff', font=('Microsoft YaHei', 10, 'bold'))
-
         feed_count = len(feed_pumps)
-        if feed_count > 0:
+        feed_positions = {}
+
+        if pump_relations and pump_count > 0:
+            feed_pump_map = {fp['id']: fp for fp in feed_pumps}
+
+            for rel in pump_relations:
+                main_pump_id = rel.get('pump_id')
+                feed_pump_id = rel.get('feed_pump_id')
+
+                if main_pump_id in pump_positions and feed_pump_id in feed_pump_map:
+                    main_x, main_y = pump_positions[main_pump_id]
+                    feed_p = feed_pump_map[feed_pump_id]
+                    icon, color, text = self._dash_pump_state(feed_p, standby=True)
+                    code = self._dash_pump_code(feed_p, 'JP', feed_pumps.index(feed_p) + 1)
+                    feed_x = main_x
+                    feed_y = h * 0.79
+                    draw_feed_pump(feed_x, feed_y, code, icon, color, main_x, main_y)
+                    feed_positions[feed_p['id']] = (feed_x, feed_y)
+
+        remaining_feed_pumps = [fp for fp in feed_pumps if fp['id'] not in feed_positions]
+        if remaining_feed_pumps and pump_count > 0:
+            pump_gap = (pump_area_right - pump_area_left) / max(pump_count - 1, 1)
+            for i, fp in enumerate(remaining_feed_pumps):
+                px = pump_area_left + i * pump_gap
+                py = h * 0.79
+                icon, color, text = self._dash_pump_state(fp, standby=True)
+                code = self._dash_pump_code(fp, 'JP', feed_pumps.index(fp) + 1)
+                draw_feed_pump(px, py, code, icon, color, px, h * 0.50)
+                feed_positions[fp['id']] = (px, py)
+        elif feed_count > 0 and pump_count == 0:
             feed_gap = (pump_area_right - pump_area_left) / max(feed_count - 1, 1)
             for i in range(feed_count):
                 p = feed_pumps[i]
                 icon, color, text = self._dash_pump_state(p, standby=True)
                 code = self._dash_pump_code(p, 'JP', i + 1)
-                draw_pump(pump_area_left - 45 + i * feed_gap, h * 0.79, code, icon, color, upper=False)
-        else:
+                px = pump_area_left - 45 + i * feed_gap
+                py = h * 0.79
+                c.create_line(px, py - 36, px, pipe_y_positions[-1], fill='#85f0a9', width=5)
+                c.create_oval(px - 20, py - 18, px + 20, py + 18, fill='#1b354d', outline='#7da5c5', width=2)
+                c.create_rectangle(px - 10, py - 26, px + 10, py - 14, fill='#25e073', outline='#8aaac6')
+                c.create_oval(px - 25, py + 12, px + 25, py + 28, outline=color, width=4)
+                c.create_text(px, py + 45, text=code, fill='#eaf6ff', font=('Consolas', 10, 'bold'))
+                c.create_text(px, py + 24, text=icon, fill=color, font=('Microsoft YaHei', 13, 'bold'))
+        elif feed_count == 0 and pump_count > 0:
             c.create_text(w * 0.51, h * 0.82, text='暂无补水泵', fill='#8a929c', font=('Microsoft YaHei', 11, 'bold'))
-        # 光效
-        for x in range(int(left_x), int(right_x), 42):
-            c.create_oval(x - 3, upper_y - 3, x + 3, upper_y + 3, fill='#7be6ff', outline='')
-        for x in range(int(left_x * 0.82), int(right_x), 42):
-            c.create_oval(x - 3, lower_y - 3, x + 3, lower_y + 3, fill='#7cff9f', outline='')
+
+        for idx, pipe_y in enumerate(pipe_y_positions):
+            for x in range(int(left_x), int(right_x), 42):
+                c.create_oval(x - 3, pipe_y - 3, x + 3, pipe_y + 3, fill='#7be6ff' if idx == 0 else '#7cff9f',
+                              outline='')
 
     def _update_dash_twin_view(self):
         mode = self.dash_twin_view_mode.get()
@@ -1377,17 +1435,39 @@ class App(tk.Tk):
         pumps = []
         feed_pumps = []
         pipes = []
+        pump_relations = []
         if sid:
             try:
                 pumps = list(self.rows(
                     "SELECT * FROM pump WHERE station_id=? AND pump_type!='feed' ORDER BY display_order,id",
                     (sid,)))
+                pump_ids = [_["id"] for _ in pumps]
                 feed_pumps = list(self.rows(
                     "SELECT * FROM pump WHERE station_id=? AND pump_type='feed' ORDER BY display_order,id", (sid,)))
                 pipes = list(
                     self.rows("SELECT * FROM main_pipe WHERE station_id=? ORDER BY display_order,id", (sid,)))
-            except Exception:
-                pumps, feed_pumps, pipes = [], [], []
+                if pump_ids:
+                    placeholders = ','.join('?' * len(pump_ids))
+                    pump_pipe_relations = list(self.rows(
+                        f"SELECT pump_id, pipe_id FROM pump_pipe_relation WHERE pump_id IN ({placeholders})",
+                        pump_ids))
+                else:
+                    pump_pipe_relations = []
+                # TODO 寻找主泵和给水泵之间的关联关系并将其赋值给pump_pipe_relations
+                pump_pipe_relations_list = []
+                for pump_pipe in pump_pipe_relations:
+                    pump_pipe_relations_dict = {
+                        "pump_id": pump_pipe['pump_id'],
+                        "pipe_id": pump_pipe['pipe_id']
+                    }
+                    for pump in pumps:
+                        pump_id = self.safe_get(pump, "id")
+                        if pump_id == pump_pipe['pump_id']:
+                            pump_pipe_relations_dict["feed_pump_id"] = self.safe_get(pump, "feed_pump_id")
+                    pump_pipe_relations_list.append(pump_pipe_relations_dict)
+
+            except Exception as e:
+                pumps, feed_pumps, pipes, pump_pipe_relations_list = [], [], [], []
         try:
             self._write_twin_state_json(sid)
         except Exception:
@@ -1395,7 +1475,13 @@ class App(tk.Tk):
         if getattr(self, 'dash_twin_view_mode', None) and self.dash_twin_view_mode.get() == 'plan':
             lv1_val = levels[0].get('value') if len(levels) > 0 else None
             lv2_val = levels[1].get('value') if len(levels) > 1 else None
-            self._draw_dashboard_twin(pumps, feed_pumps, pipes, lv1_val or 0, lv2_val or 0)
+            # print(f"pumps={pumps}")
+            # print(f"feed_pumps={feed_pumps}")
+            # print(f"pipes={pipes}")
+            # print(f"lv1_val={lv1_val}")
+            # print(f"lv2_val={lv2_val}")
+            # print(f"pump_relations={pump_pipe_relations_list}")
+            self._draw_dashboard_twin(pumps, feed_pumps, pipes, lv1_val or 0, lv2_val or 0, pump_pipe_relations_list)
         self._build_status_cards(pumps, feed_pumps)
 
         total_flow = self._dash_float(s.get('total_flow'))
@@ -1990,7 +2076,8 @@ class App(tk.Tk):
                                                                        '是' if p['maintenance'] else '否',
                                                                        '是' if p['manual_fault'] else '否',
                                                                        p['rated_flow'], fp['pump_code'] if fp else ''))
-        if not self.edit_pump_id: self.clear_pump_form()
+        if not self.edit_pump_id:
+            self.clear_pump_form()
 
     def clear_pump_form(self):
         self.edit_pump_id = None
@@ -3688,11 +3775,11 @@ class App(tk.Tk):
     def _manual_pump_card(self, parent, p):
         card = tk.Frame(parent, bg='#0a2a4a', highlightbackground=self.manual_line, highlightthickness=1)
         card.pack(side='left', fill='y', padx=(0, 8))
-        print(
-            "card size:",
-            card.winfo_width(),
-            card.winfo_height()
-        )
+        # print(
+        #     "card size:",
+        #     card.winfo_width(),
+        #     card.winfo_height()
+        # )
         card.pack_propagate(False)
         card.config(
             width=180,
@@ -3761,9 +3848,9 @@ class App(tk.Tk):
         return card
 
     def refresh_manual_cards(self, pumps):
-        print("进入refresh_manual_cards")
-        print("feed:", hasattr(self, 'feed_pump_cards'))
-        print("drain:", hasattr(self, 'drain_pump_cards'))
+        # print("进入refresh_manual_cards")
+        # print("feed:", hasattr(self, 'feed_pump_cards'))
+        # print("drain:", hasattr(self, 'drain_pump_cards'))
 
         if not hasattr(self, 'feed_pump_cards') or not hasattr(self, 'drain_pump_cards'):
             print("这里return了")
